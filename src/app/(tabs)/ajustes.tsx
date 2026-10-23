@@ -7,6 +7,7 @@ import { Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View }
 import { Contador } from '../../components/campos';
 import { Botao, Cartao, TituloSecao, estilos } from '../../components/ui';
 import { type Config, lerConfig, salvarConfig } from '../../lib/db';
+import { exportarPlanilha } from '../../lib/exportar';
 import {
   type Calendario,
   enviarNotificacaoTeste,
@@ -131,6 +132,19 @@ export default function Ajustes() {
               </Pressable>
             );
           })}
+      </Cartao>
+
+      <TituloSecao>Planilha</TituloSecao>
+      <Cartao style={{ gap: 12 }}>
+        <Text style={s.sub}>
+          Exporta todos os lançamentos em CSV, que abre no Excel e no Google Planilhas. Dá para mandar por e-mail, WhatsApp ou salvar no Drive.
+        </Text>
+        <Botao
+          titulo="Exportar planilha"
+          variante="secundario"
+          icone="download-outline"
+          onPress={() => exportarPlanilha(db).catch(() => Alert.alert('Não foi possível exportar a planilha'))}
+        />
       </Cartao>
 
       <TituloSecao>E-mail</TituloSecao>
