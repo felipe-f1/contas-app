@@ -15,7 +15,7 @@ await db.exec(`
   grant execute on function auth.uid() to anon, authenticated;
   insert into auth.users values ('00000000-0000-0000-0000-00000000000a','a@x.com'), ('00000000-0000-0000-0000-00000000000b','b@x.com');
 `);
-for (const f of ['0001_backups.sql', '0002_sincronizacao.sql']) await db.exec(readFileSync(`${raiz}/supabase/migrations/${f}`, 'utf8'));
+for (const f of ['0001_backups.sql', '0002_sincronizacao.sql', '0003_excluir_conta.sql']) await db.exec(readFileSync(`${raiz}/supabase/migrations/${f}`, 'utf8'));
 // rodar de novo: migração precisa ser idempotente
 await db.exec(readFileSync(`${raiz}/supabase/migrations/0002_sincronizacao.sql`, 'utf8'));
 console.log('✓ migrações executadas (e reexecutadas sem erro)');
@@ -76,4 +76,15 @@ console.log('✓ preferências por usuário');
 // 6. validações
 await assert.rejects(como(A, upsert.replace("'2026-10'", "'outubro'"), ['l9', 'x', '2026-10-23T12:00:00Z']), /check constraint/);
 console.log('✓ constraints rejeitam dados inválidos');
+// 7. exclusão de conta: só a própria, com todos os dados em cascata
+await assert.rejects(como(null, `select public.excluir_minha_conta()`), /permission denied/);
+const contar = async (uid) => (await db.query(`select
+  (select count(*)::int from public.lancamentos where user_id = '${uid}') +
+  (select count(*)::int from public.preferencias where user_id = '${uid}') +
+  (select count(*)::int from auth.users where id = '${uid}') as n`)).rows[0].n;
+assert.ok((await contar(A)) > 0 && (await contar(B)) > 0);
+await como(A, `select public.excluir_minha_conta()`);
+assert.equal(await contar(A), 0);
+assert.ok((await contar(B)) > 0, 'dados de B não podem ser afetados');
+console.log('✓ excluir conta: apaga só o próprio usuário e todos os seus dados; anon não executa');
 console.log('TODOS OS TESTES DO BANCO PASSARAM');

@@ -29,7 +29,7 @@ export default function Entrar() {
   }
 
   return (
-    <TelaAuth titulo="Contas" subtitulo="Entre para ver suas contas a pagar">
+    <TelaAuth titulo="Contas em Dia" subtitulo="Entre para ver suas contas a pagar">
       <CampoEmail valor={email} onChange={setEmail} />
       <CampoSenha valor={senha} onChange={setSenha} />
       <Mensagem texto={erro} />

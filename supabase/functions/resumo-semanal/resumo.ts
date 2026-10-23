@@ -53,7 +53,7 @@ export function montarResumo(lancamentos: LancamentoResumo[], hoje: string, dias
 <h2 style="margin-bottom:4px">Resumo das suas contas</h2>
 <p style="color:#5E6773;margin-top:0">Semana de ${dataBR(hoje)} a ${dataBR(fim)}</p>
 ${corpo}
-<p style="color:#5E6773;font-size:12px;margin-top:32px">Enviado pelo app Contas. Para parar de receber, desative em Ajustes → Resumo por e-mail.</p>
+<p style="color:#5E6773;font-size:12px;margin-top:32px">Enviado pelo app Contas em Dia. Para parar de receber, desative em Ajustes → Resumo por e-mail.</p>
 </div>`;
 
   return { atrasadas, semana, assunto, html, vazio: partes.length === 0 };

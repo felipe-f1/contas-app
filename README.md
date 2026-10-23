@@ -1,4 +1,4 @@
-# Contas 💸
+# Contas em Dia 💸
 
 App de celular (Android e iOS) para lembrar das contas a vencer e controlar os gastos do mês. Substitui a planilha.
 
@@ -17,6 +17,8 @@ App de celular (Android e iOS) para lembrar das contas a vencer e controlar os g
 - **Resumo semanal por e-mail**: toda segunda, as contas atrasadas e as da semana.
 
 ## Instalar no celular (Android)
+
+Página pública de download: **https://felipe-f1.github.io/contas-app/** (com política de privacidade e exclusão de conta). Publicação na Play Store: veja [loja/FICHA.md](loja/FICHA.md).
 
 Cada envio para a branch `main` gera um APK novo em **[Releases](../../releases)**. Abra a página no celular, toque em `app-release.apk` e instale. As atualizações são instaladas por cima, sem perder dados.
 

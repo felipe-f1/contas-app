@@ -97,6 +97,13 @@ export async function prepararUsuario(db: SQLiteDatabase, usuarioId: string) {
   await salvarConfig(db, { usuarioId });
 }
 
+/** Exclui a conta e todos os dados no servidor. Exige a senha (reautenticação). */
+export async function excluirConta(email: string, senha: string) {
+  await entrar(email, senha);
+  const { error } = await nuvem().rpc('excluir_minha_conta');
+  if (error) throw traduzir(error);
+}
+
 export async function enviarResumoTeste() {
   const { error } = await nuvem().functions.invoke('resumo-semanal', { body: { teste: true } });
   if (error) throw error;

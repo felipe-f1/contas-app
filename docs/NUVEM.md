@@ -10,6 +10,8 @@ No Supabase, abra **SQL Editor → New query**, cole **todo** o conteúdo de [`s
 
 O script cria as tabelas `contas_fixas`, `lancamentos`, `meses_gerados` e `preferencias`, com as regras de segurança (RLS). Pode rodar de novo sem problema.
 
+Depois, numa nova query, rode também [`supabase/migrations/0003_excluir_conta.sql`](../supabase/migrations/0003_excluir_conta.sql), que permite ao usuário excluir a própria conta (exigência da Play Store).
+
 ## 2. Login com e-mail e senha
 
 Em **Authentication → Sign In / Providers → Email**:

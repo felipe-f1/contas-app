@@ -1,24 +1,24 @@
 {
   "expo": {
-    "name": "Contas",
-    "slug": "contas-app",
+    "name": "Contas em Dia",
+    "slug": "contas-em-dia",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.contasapp.lembretes"
+      "bundleIdentifier": "com.felipebellis.contas"
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#0E7C66",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.contasapp.lembretes",
+      "package": "com.felipebellis.contas",
       "allowBackup": false
     },
     "web": {
@@ -49,17 +49,17 @@
         "expo-secure-store",
         {
           "configureAndroidBackup": true,
-          "faceIDPermission": "Use o Face ID para desbloquear o app Contas."
+          "faceIDPermission": "Use o Face ID para desbloquear o Contas em Dia."
         }
       ],
       [
         "expo-local-authentication",
         {
-          "faceIDPermission": "Use o Face ID para desbloquear o app Contas."
+          "faceIDPermission": "Use o Face ID para desbloquear o Contas em Dia."
         }
       ]
     ],
-    "scheme": "contas",
+    "scheme": "contasemdia",
     "experiments": {
       "typedRoutes": true
     }

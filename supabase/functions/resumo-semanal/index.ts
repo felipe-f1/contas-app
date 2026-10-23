@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
   }
 
   const hoje = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
-  const remetente = Deno.env.get('EMAIL_REMETENTE') ?? 'Contas <onboarding@resend.dev>';
+  const remetente = Deno.env.get('EMAIL_REMETENTE') ?? 'Contas em Dia <onboarding@resend.dev>';
   let enviados = 0;
   const falhas: string[] = [];
 

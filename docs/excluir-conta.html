@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Excluir conta · Contas em Dia</title>
+  <link rel="icon" href="icone.png">
+  <link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+<main>
+  <a class="topo" href="./"><img src="icone.png" alt=""><strong>Contas em Dia</strong></a>
+
+  <h1>Excluir sua conta</h1>
+  <p class="suave">A exclusão é imediata e definitiva. São apagados: e-mail e login, contas fixas, lançamentos, parcelas, receitas e preferências.</p>
+
+  <h2>Pelo app</h2>
+  <p>Abra o Contas em Dia e vá em <strong>Ajustes → Conta → Excluir minha conta e todos os dados</strong>.</p>
+
+  <h2>Por esta página</h2>
+  <p>Use se você não tem mais o app instalado.</p>
+  <form class="cartao" id="form">
+    <label for="email">E-mail da conta</label>
+    <input id="email" type="email" autocomplete="email" required>
+    <label for="senha">Senha</label>
+    <input id="senha" type="password" autocomplete="current-password" required>
+    <p class="aviso">⚠️ Isso não pode ser desfeito. Se quiser guardar uma cópia, exporte a planilha no app antes.</p>
+    <p><button class="botao perigo" id="botao" type="submit">Excluir minha conta</button></p>
+    <p id="status" role="status"></p>
+  </form>
+
+  <footer>
+    <a href="./">Início</a>
+    <a href="privacidade.html">Política de privacidade</a>
+  </footer>
+</main>
+
+<script src="vendor/supabase-js-2.117.3.js"></script>
+<script>
+  // Mesma função usada no app: só apaga a conta de quem está autenticado.
+  const cliente = supabase.createClient(
+    'https://hkvkqtcdvsappbgmkibz.supabase.co',
+    'sb_publishable_3le6rz3X9llhq56RQHZnaw_mN893DFS',
+    { auth: { persistSession: false } },
+  );
+  const status = document.getElementById('status');
+  const botao = document.getElementById('botao');
+
+  document.getElementById('form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!confirm('Excluir a conta e todos os dados definitivamente?')) return;
+    botao.disabled = true;
+    status.textContent = 'Excluindo…';
+    try {
+      const email = document.getElementById('email').value.trim();
+      const senha = document.getElementById('senha').value;
+      const entrou = await cliente.auth.signInWithPassword({ email, password: senha });
+      if (entrou.error) throw new Error('E-mail ou senha incorretos.');
+      const r = await cliente.rpc('excluir_minha_conta');
+      if (r.error) throw r.error;
+      await cliente.auth.signOut().catch(() => {});
+      document.getElementById('form').innerHTML = '<p class="info">✅ Conta e dados excluídos. Você também pode desinstalar o app.</p>';
+    } catch (erro) {
+      status.textContent = 'Não foi possível excluir: ' + erro.message;
+      botao.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>

@@ -50,18 +50,23 @@ jobs:
       - name: Gerar projeto Android
         run: npx expo prebuild --platform android --no-install
 
-      - name: Compilar APK
+      - name: Compilar APK e AAB
         working-directory: android
-        run: ./gradlew assembleRelease --no-daemon
+        # APK: instalação direta pelo link de download. AAB: formato exigido pela Play Store.
+        run: ./gradlew assembleRelease bundleRelease --no-daemon
 
       - name: Publicar release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.${{ github.run_number }}
-          name: Contas 1.0.${{ github.run_number }}
-          files: android/app/build/outputs/apk/release/app-release.apk
+          name: Contas em Dia 1.0.${{ github.run_number }}
+          files: |
+            android/app/build/outputs/apk/release/app-release.apk
+            android/app/build/outputs/bundle/release/app-release.aab
           body: |
             📲 **Para instalar:** abra esta página no celular Android, toque em `app-release.apk` e confirme a instalação
             (na primeira vez, permita "instalar apps desconhecidos" para o navegador).
+
+            🏪 `app-release.aab` é o pacote para enviar à Google Play Console.
 
             Alteração: ${{ github.event.head_commit.message }}

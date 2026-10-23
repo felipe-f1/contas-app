@@ -105,7 +105,7 @@ async function reconciliarAgenda(calendarioId: string, pendentes: Lancamento[], 
       startDate: inicioEvento,
       endDate: new Date(inicioEvento.getTime() + 30 * 60_000),
       timeZone: fuso,
-      notes: `Conta a pagar (criado pelo app Contas).\n${marca}`,
+      notes: `Conta a pagar (criado pelo app Contas em Dia).\n${marca}`,
       alarms: alarmes.map((relativeOffset) => ({ relativeOffset, method: Calendar.AlarmMethod.ALERT })),
     });
   }

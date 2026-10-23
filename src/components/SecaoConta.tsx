@@ -115,6 +115,9 @@ export function SecaoConta() {
         <Botao titulo="Sincronizar agora" variante="secundario" icone="sync-outline" onPress={sincronizarAgora} desabilitado={ocupado} />
         <Botao titulo="Trocar senha" variante="secundario" icone="key-outline" onPress={() => router.push('/trocar-senha')} />
         <Botao titulo="Sair da conta" variante="perigo" icone="log-out-outline" onPress={confirmarSaida} desabilitado={ocupado} />
+        <Text style={s.excluir} onPress={() => router.push('/excluir-conta')} accessibilityRole="link">
+          Excluir minha conta e todos os dados
+        </Text>
       </Cartao>
 
       <TituloSecao>Segurança</TituloSecao>
@@ -195,4 +198,5 @@ const s = StyleSheet.create({
   selos: { gap: 6, paddingTop: 4 },
   selo: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   seloTexto: { fontSize: 13, color: cores.textoSuave },
+  excluir: { fontSize: 14, color: cores.perigo, textAlign: 'center', paddingTop: 4, textDecorationLine: 'underline' },
 });

@@ -61,6 +61,7 @@ function Navegacao() {
           <Stack.Screen name="lancamento/[id]" options={{ presentation: 'modal', title: 'Lançamento' }} />
           <Stack.Screen name="conta/[id]" options={{ presentation: 'modal', title: 'Conta fixa' }} />
           <Stack.Screen name="trocar-senha" options={{ presentation: 'modal', title: 'Trocar senha' }} />
+          <Stack.Screen name="excluir-conta" options={{ presentation: 'modal', title: 'Excluir conta' }} />
         </Stack.Protected>
 
         {/* Sem conta: entrar, cadastrar, recuperar senha. Ficam na raiz (sem grupo):

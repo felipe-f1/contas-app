@@ -22,7 +22,7 @@ export function TelaBloqueio() {
 
   const tentarBiometria = useCallback(async () => {
     const r = await LocalAuthentication.authenticateAsync({
-      promptMessage: 'Desbloquear Contas',
+      promptMessage: 'Desbloquear o Contas em Dia',
       cancelLabel: 'Usar PIN',
       disableDeviceFallback: true,
     });
@@ -82,7 +82,7 @@ export function TelaBloqueio() {
     <SafeAreaView style={[StyleSheet.absoluteFill, s.tela]}>
       <View style={s.topo}>
         <Ionicons name="lock-closed" size={36} color={cores.primaria} />
-        <Text style={s.titulo}>Contas bloqueado</Text>
+        <Text style={s.titulo}>Contas em Dia bloqueado</Text>
         <Text style={s.sub}>{usuario?.email}</Text>
         <Text style={[s.sub, erro && { color: cores.perigo }]}>
           {erro ? `PIN incorreto. ${restantes} tentativa${restantes === 1 ? '' : 's'} restante${restantes === 1 ? '' : 's'}.` : 'Digite seu PIN'}
