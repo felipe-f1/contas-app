@@ -4,23 +4,32 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { GraficoMeses } from '../../components/GraficoMeses';
 import { ItemLancamento } from '../../components/ItemLancamento';
 import { BotaoFlutuante, Cartao, TituloSecao, Vazio, estilos } from '../../components/ui';
 import { hojeISO, mesAtual, nomeMes, somarMeses } from '../../lib/datas';
-import { type Lancamento, alternarPago, gerarMes, listarLancamentosDoMes } from '../../lib/db';
+import { type Lancamento, alternarPago, gerarMes, listarLancamentosDoMes, totaisPorMes } from '../../lib/db';
 import { formatarBRL } from '../../lib/dinheiro';
+import { type PontoSerie, montarSerie, resumir } from '../../lib/relatorios';
 import { sincronizar } from '../../lib/sincronizar';
 import { categoria, cores } from '../../lib/tema';
+
+const MESES_GRAFICO = 6;
 
 export default function Mes() {
   const db = useSQLiteContext();
   const [mes, setMes] = useState(mesAtual());
   const [itens, setItens] = useState<Lancamento[]>([]);
+  const [serie, setSerie] = useState<PontoSerie[]>([]);
   const hoje = hojeISO();
 
   const carregar = useCallback(async () => {
     await gerarMes(db, mes);
     setItens(await listarLancamentosDoMes(db, mes));
+    // O gráfico termina no mês aberto (ou no atual, se você estiver olhando o futuro).
+    const fim = mes > mesAtual() ? mes : mesAtual();
+    const inicio = somarMeses(fim, -(MESES_GRAFICO - 1));
+    setSerie(montarSerie(await totaisPorMes(db, inicio, fim), fim, MESES_GRAFICO));
   }, [db, mes]);
 
   useFocusEffect(
@@ -35,13 +44,8 @@ export default function Mes() {
     sincronizar(db);
   }
 
-  const total = itens.reduce((s, l) => s + l.valor_centavos, 0);
-  const pago = itens.filter((l) => l.pago_em).reduce((s, l) => s + l.valor_centavos, 0);
-
-  const porCategoria = Object.entries(
-    itens.reduce<Record<string, number>>((acc, l) => ({ ...acc, [l.categoria]: (acc[l.categoria] ?? 0) + l.valor_centavos }), {}),
-  ).sort((a, b) => b[1] - a[1]);
-  const maior = porCategoria[0]?.[1] ?? 1;
+  const r = resumir(itens);
+  const maior = r.porCategoria[0]?.[1] ?? 1;
 
   return (
     <View style={estilos.tela}>
@@ -58,16 +62,37 @@ export default function Mes() {
         keyExtractor={(l) => String(l.id)}
         contentContainerStyle={estilos.conteudo}
         ListHeaderComponent={
-          itens.length > 0 ? (
-            <View style={{ gap: 12 }}>
-              <Cartao style={s.totais}>
-                <Total rotulo="Total" valor={total} />
-                <Total rotulo="Pago" valor={pago} cor={cores.primaria} />
-                <Total rotulo="A pagar" valor={total - pago} cor={total - pago > 0 ? cores.alerta : cores.textoSuave} />
+          <View style={{ gap: 12 }}>
+            {itens.length > 0 && (
+              <Cartao style={{ gap: 14 }}>
+                <View style={s.totais}>
+                  <Total rotulo="Receitas" valor={r.receitas} cor={cores.primaria} />
+                  <Total rotulo="Despesas" valor={r.despesas} cor={cores.perigo} />
+                  <Total rotulo="Saldo" valor={r.saldo} cor={r.saldo >= 0 ? cores.primaria : cores.perigo} />
+                </View>
+                {r.qtdDespesas > 0 && (
+                  <View style={{ gap: 6 }}>
+                    <View style={s.barra}>
+                      <View style={[s.barraCheia, { width: `${(r.despesasPagas / r.despesas) * 100}%`, backgroundColor: cores.primaria }]} />
+                    </View>
+                    <Text style={s.legenda}>
+                      {formatarBRL(r.despesasPagas)} pago · {formatarBRL(r.despesas - r.despesasPagas)} a pagar
+                    </Text>
+                  </View>
+                )}
               </Cartao>
+            )}
 
+            {serie.some((p) => p.receitas || p.despesas) && (
+              <Cartao>
+                <GraficoMeses serie={serie} mesAtivo={mes} onEscolher={setMes} />
+              </Cartao>
+            )}
+
+            {r.porCategoria.length > 0 && (
               <Cartao style={{ gap: 10 }}>
-                {porCategoria.map(([nome, valor]) => {
+                <Text style={s.cartaoTitulo}>Para onde foi o dinheiro</Text>
+                {r.porCategoria.map(([nome, valor]) => {
                   const cat = categoria(nome);
                   return (
                     <View key={nome} style={{ gap: 4 }}>
@@ -75,7 +100,7 @@ export default function Mes() {
                         <Ionicons name={cat.icone} size={16} color={cat.cor} />
                         <Text style={s.catNome}>{nome}</Text>
                         <Text style={s.catValor}>{formatarBRL(valor)}</Text>
-                        <Text style={s.catPct}>{Math.round((valor / total) * 100)}%</Text>
+                        <Text style={s.catPct}>{Math.round((valor / r.despesas) * 100)}%</Text>
                       </View>
                       <View style={s.barra}>
                         <View style={[s.barraCheia, { width: `${(valor / maior) * 100}%`, backgroundColor: cat.cor }]} />
@@ -84,10 +109,10 @@ export default function Mes() {
                   );
                 })}
               </Cartao>
+            )}
 
-              <TituloSecao>Lançamentos</TituloSecao>
-            </View>
-          ) : undefined
+            {itens.length > 0 && <TituloSecao>Lançamentos</TituloSecao>}
+          </View>
         }
         renderItem={({ item }) => (
           <ItemLancamento
@@ -98,7 +123,7 @@ export default function Mes() {
           />
         )}
         ListEmptyComponent={
-          <Vazio icone="receipt-outline" titulo="Nenhum lançamento neste mês" texto="Toque no + para registrar um gasto ou uma conta." />
+          <Vazio icone="receipt-outline" titulo="Nenhum lançamento neste mês" texto="Toque no + para registrar um gasto, uma receita ou uma compra parcelada." />
         }
       />
       <BotaoFlutuante onPress={() => router.push({ pathname: '/lancamento/[id]', params: { id: 'novo', mes } })} />
@@ -141,6 +166,8 @@ const s = StyleSheet.create({
   totais: { flexDirection: 'row', gap: 12 },
   totalRotulo: { fontSize: 13, color: cores.textoSuave, fontWeight: '600' },
   totalValor: { fontSize: 17, fontWeight: '800' },
+  legenda: { fontSize: 13, color: cores.textoSuave },
+  cartaoTitulo: { fontSize: 15, fontWeight: '700', color: cores.texto },
   catLinha: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   catNome: { flex: 1, fontSize: 14, color: cores.texto },
   catValor: { fontSize: 14, fontWeight: '700', color: cores.texto },

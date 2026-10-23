@@ -19,7 +19,10 @@ export default function Fixas() {
     }, [db]),
   );
 
-  const totalMensal = contas.filter((c) => c.ativa).reduce((s, c) => s + c.valor_centavos, 0);
+  const ativas = contas.filter((c) => c.ativa);
+  const soma = (tipo: string) => ativas.filter((c) => c.tipo === tipo).reduce((s, c) => s + c.valor_centavos, 0);
+  const despesas = soma('despesa');
+  const receitas = soma('receita');
 
   return (
     <View style={estilos.tela}>
@@ -30,8 +33,16 @@ export default function Fixas() {
         ListHeaderComponent={
           contas.length > 0 ? (
             <Cartao>
-              <Text style={s.rotulo}>Total fixo por mês</Text>
-              <Text style={s.total}>{formatarBRL(totalMensal)}</Text>
+              <Text style={s.rotulo}>Despesas fixas por mês</Text>
+              <Text style={s.total}>{formatarBRL(despesas)}</Text>
+              {receitas > 0 && (
+                <Text style={[s.dica, { marginBottom: 4 }]}>
+                  Receitas fixas: <Text style={{ color: cores.primaria, fontWeight: '700' }}>{formatarBRL(receitas)}</Text> · sobra{' '}
+                  <Text style={{ fontWeight: '700', color: receitas - despesas >= 0 ? cores.primaria : cores.perigo }}>
+                    {formatarBRL(receitas - despesas)}
+                  </Text>
+                </Text>
+              )}
               <Text style={s.dica}>Essas contas entram automaticamente em todo mês, com lembrete antes do vencimento.</Text>
             </Cartao>
           ) : undefined
@@ -53,7 +64,10 @@ export default function Fixas() {
                   {item.ativa ? `Todo dia ${item.dia_vencimento}` : 'Pausada'} · {item.categoria}
                 </Text>
               </View>
-              <Text style={s.valor}>{formatarBRL(item.valor_centavos)}</Text>
+              <Text style={[s.valor, item.tipo === 'receita' && { color: cores.primaria }]}>
+                {item.tipo === 'receita' ? '+' : ''}
+                {formatarBRL(item.valor_centavos)}
+              </Text>
               <Ionicons name="chevron-forward" size={18} color={cores.textoSuave} />
             </Pressable>
           );

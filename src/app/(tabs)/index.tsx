@@ -8,27 +8,19 @@ import { BotaoFlutuante, Cartao, TituloSecao, Vazio, estilos } from '../../compo
 import { hojeISO, mesAtual, nomeMes, somarDias } from '../../lib/datas';
 import { type Lancamento, alternarPago, listarLancamentosDoMes, listarPendentes } from '../../lib/db';
 import { formatarBRL } from '../../lib/dinheiro';
+import { type Resumo, resumir } from '../../lib/relatorios';
 import { sincronizar } from '../../lib/sincronizar';
 import { cores } from '../../lib/tema';
-
-type Resumo = { pendente: number; pago: number; qtdPagas: number; qtdTotal: number };
 
 export default function APagar() {
   const db = useSQLiteContext();
   const [pendentes, setPendentes] = useState<Lancamento[]>([]);
-  const [resumo, setResumo] = useState<Resumo>({ pendente: 0, pago: 0, qtdPagas: 0, qtdTotal: 0 });
+  const [resumo, setResumo] = useState<Resumo>(resumir([]));
   const hoje = hojeISO();
 
   const carregar = useCallback(async () => {
     setPendentes(await listarPendentes(db, somarDias(hojeISO(), 30)));
-    const doMes = await listarLancamentosDoMes(db, mesAtual());
-    const pagas = doMes.filter((l) => l.pago_em);
-    setResumo({
-      pendente: doMes.filter((l) => !l.pago_em).reduce((s, l) => s + l.valor_centavos, 0),
-      pago: pagas.reduce((s, l) => s + l.valor_centavos, 0),
-      qtdPagas: pagas.length,
-      qtdTotal: doMes.length,
-    });
+    setResumo(resumir(await listarLancamentosDoMes(db, mesAtual())));
   }, [db]);
 
   useFocusEffect(
@@ -60,16 +52,21 @@ export default function APagar() {
         ListHeaderComponent={
           <Cartao style={s.resumo}>
             <Text style={s.resumoRotulo}>Falta pagar em {nomeMes(mesAtual()).toLowerCase()}</Text>
-            <Text style={s.resumoValor}>{formatarBRL(resumo.pendente)}</Text>
-            {resumo.qtdTotal > 0 && (
+            <Text style={s.resumoValor}>{formatarBRL(resumo.despesas - resumo.despesasPagas)}</Text>
+            {resumo.qtdDespesas > 0 && (
               <>
                 <View style={s.barra}>
-                  <View style={[s.barraCheia, { width: `${(resumo.qtdPagas / resumo.qtdTotal) * 100}%` }]} />
+                  <View style={[s.barraCheia, { width: `${(resumo.qtdDespesasPagas / resumo.qtdDespesas) * 100}%` }]} />
                 </View>
                 <Text style={s.resumoRodape}>
-                  {resumo.qtdPagas} de {resumo.qtdTotal} contas pagas · {formatarBRL(resumo.pago)} já pago
+                  {resumo.qtdDespesasPagas} de {resumo.qtdDespesas} contas pagas · {formatarBRL(resumo.despesasPagas)} já pago
                 </Text>
               </>
+            )}
+            {resumo.receitas > 0 && (
+              <Text style={s.resumoRodape}>
+                Saldo previsto do mês: <Text style={{ fontWeight: '800', color: '#fff' }}>{formatarBRL(resumo.saldo)}</Text>
+              </Text>
             )}
           </Cartao>
         }

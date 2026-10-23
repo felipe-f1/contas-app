@@ -3,17 +3,18 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 
-import { CampoValor, Contador, SeletorCategoria } from '../../components/campos';
+import { CampoValor, Contador, SeletorCategoria, SeletorTipo } from '../../components/campos';
 import { Botao, Rotulo, estilos } from '../../components/ui';
-import { buscarContaFixa, excluirContaFixa, salvarContaFixa } from '../../lib/db';
+import { type Tipo, buscarContaFixa, excluirContaFixa, salvarContaFixa } from '../../lib/db';
 import { sincronizar } from '../../lib/sincronizar';
-import { cores } from '../../lib/tema';
+import { categoriasDo, cores } from '../../lib/tema';
 
 export default function FormContaFixa() {
   const db = useSQLiteContext();
   const params = useLocalSearchParams<{ id: string }>();
   const id = params.id === 'nova' ? null : Number(params.id);
 
+  const [tipo, setTipo] = useState<Tipo>('despesa');
   const [nome, setNome] = useState('');
   const [valor, setValor] = useState(0);
   const [dia, setDia] = useState(10);
@@ -24,6 +25,7 @@ export default function FormContaFixa() {
     if (id == null) return;
     buscarContaFixa(db, id).then((c) => {
       if (!c) return router.back();
+      setTipo(c.tipo);
       setNome(c.nome);
       setValor(c.valor_centavos);
       setDia(c.dia_vencimento);
@@ -32,9 +34,15 @@ export default function FormContaFixa() {
     });
   }, [db, id]);
 
+  function trocarTipo(novo: Tipo) {
+    setTipo(novo);
+    if (!categoriasDo(novo).some((c) => c.nome === cat)) setCat(categoriasDo(novo)[0].nome);
+  }
+
   async function salvar() {
     if (!nome.trim()) return Alert.alert('Informe o nome da conta');
     await salvarContaFixa(db, id, {
+      tipo,
       nome: nome.trim(),
       valor_centavos: valor,
       dia_vencimento: dia,
@@ -65,13 +73,14 @@ export default function FormContaFixa() {
     <KeyboardAvoidingView style={estilos.tela} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <Stack.Screen options={{ title: id == null ? 'Nova conta fixa' : 'Editar conta fixa' }} />
       <ScrollView contentContainerStyle={[estilos.conteudo, { gap: 18 }]} keyboardShouldPersistTaps="handled">
+        <SeletorTipo valor={tipo} onChange={trocarTipo} />
         <View>
           <Rotulo>Nome</Rotulo>
           <TextInput
             style={estilos.input}
             value={nome}
             onChangeText={setNome}
-            placeholder="Ex.: Aluguel, Internet, Cartão Nubank"
+            placeholder={tipo === 'receita' ? 'Ex.: Salário' : 'Ex.: Aluguel, Internet, Cartão Nubank'}
             placeholderTextColor={cores.textoSuave}
             autoFocus={id == null}
           />
@@ -82,13 +91,13 @@ export default function FormContaFixa() {
           <Text style={s.dica}>Se o valor varia (luz, cartão), coloque uma estimativa e ajuste o valor real no mês.</Text>
         </View>
         <View style={s.linha}>
-          <Text style={s.linhaTexto}>Vence todo dia</Text>
+          <Text style={s.linhaTexto}>{tipo === 'receita' ? 'Cai todo dia' : 'Vence todo dia'}</Text>
           <Contador valor={dia} min={1} max={31} onChange={setDia} />
         </View>
         {dia > 28 && <Text style={s.dica}>Em meses mais curtos, o vencimento cai no último dia do mês.</Text>}
         <View>
           <Rotulo>Categoria</Rotulo>
-          <SeletorCategoria valor={cat} onChange={setCat} />
+          <SeletorCategoria tipo={tipo} valor={cat} onChange={setCat} />
         </View>
         {id != null && (
           <View style={s.linha}>

@@ -5,7 +5,8 @@ import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } fr
 
 import { type DataISO, deDate, paraDate } from '../lib/datas';
 import { centavosDeDigitos, formatarBRL } from '../lib/dinheiro';
-import { CATEGORIAS, cores } from '../lib/tema';
+import type { Tipo } from '../lib/db';
+import { categoriasDo, cores } from '../lib/tema';
 import { estilos } from './ui';
 
 export function CampoValor({ valor, onChange }: { valor: number; onChange: (centavos: number) => void }) {
@@ -52,10 +53,35 @@ export function CampoData({ valor, onChange }: { valor: DataISO; onChange: (d: D
   );
 }
 
-export function SeletorCategoria({ valor, onChange }: { valor: string; onChange: (c: string) => void }) {
+export function SeletorTipo({ valor, onChange }: { valor: Tipo; onChange: (t: Tipo) => void }) {
+  const opcoes: { tipo: Tipo; rotulo: string; cor: string }[] = [
+    { tipo: 'despesa', rotulo: 'Despesa', cor: cores.perigo },
+    { tipo: 'receita', rotulo: 'Receita', cor: cores.primaria },
+  ];
+  return (
+    <View style={s.segmentos}>
+      {opcoes.map((o) => {
+        const ativo = o.tipo === valor;
+        return (
+          <Pressable
+            key={o.tipo}
+            onPress={() => onChange(o.tipo)}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: ativo }}
+            style={[s.segmento, ativo && { backgroundColor: o.cor }]}
+          >
+            <Text style={[s.segmentoTexto, ativo && { color: '#fff' }]}>{o.rotulo}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+export function SeletorCategoria({ tipo, valor, onChange }: { tipo: Tipo; valor: string; onChange: (c: string) => void }) {
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips}>
-      {CATEGORIAS.map((c) => {
+      {categoriasDo(tipo).map((c) => {
         const ativo = c.nome === valor;
         return (
           <Pressable
@@ -115,6 +141,17 @@ const s = StyleSheet.create({
   linha: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   dataTexto: { fontSize: 16, color: cores.texto },
   chips: { gap: 8, paddingVertical: 2 },
+  segmentos: {
+    flexDirection: 'row',
+    backgroundColor: cores.superficie,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: cores.borda,
+    padding: 4,
+    gap: 4,
+  },
+  segmento: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 9 },
+  segmentoTexto: { fontSize: 15, fontWeight: '700', color: cores.textoSuave },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',

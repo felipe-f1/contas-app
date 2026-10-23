@@ -4,8 +4,11 @@ import { type DataISO, type Mes, hojeISO, mesAtual, mesDe, somarMeses, venciment
 
 export const NOME_BANCO = 'contas.db';
 
+export type Tipo = 'despesa' | 'receita';
+
 export type ContaFixa = {
   id: number;
+  tipo: Tipo;
   nome: string;
   valor_centavos: number;
   dia_vencimento: number;
@@ -16,12 +19,16 @@ export type ContaFixa = {
 export type Lancamento = {
   id: number;
   conta_fixa_id: number | null;
+  tipo: Tipo;
   descricao: string;
   valor_centavos: number;
   categoria: string;
   mes: Mes;
   vencimento: DataISO;
   pago_em: DataISO | null;
+  parcela_grupo: string | null;
+  parcela_num: number | null;
+  parcela_total: number | null;
 };
 
 export type Config = {
@@ -70,6 +77,18 @@ export async function migrar(db: SQLiteDatabase) {
       CREATE TABLE config (chave TEXT PRIMARY KEY, valor TEXT NOT NULL);
     `);
     versao = 1;
+  }
+
+  if (versao < 2) {
+    await db.execAsync(`
+      ALTER TABLE contas_fixas ADD COLUMN tipo TEXT NOT NULL DEFAULT 'despesa';
+      ALTER TABLE lancamentos ADD COLUMN tipo TEXT NOT NULL DEFAULT 'despesa';
+      ALTER TABLE lancamentos ADD COLUMN parcela_grupo TEXT;
+      ALTER TABLE lancamentos ADD COLUMN parcela_num INTEGER;
+      ALTER TABLE lancamentos ADD COLUMN parcela_total INTEGER;
+      CREATE INDEX idx_lancamentos_parcela ON lancamentos(parcela_grupo);
+    `);
+    versao = 2;
   }
 
   await db.execAsync(`PRAGMA user_version = ${versao}`);
@@ -136,9 +155,9 @@ export function gerarMes(db: SQLiteDatabase, mes: Mes, agora = new Date()) {
 
 async function inserirLancamentoDaConta(db: SQLiteDatabase, c: ContaFixa, mes: Mes) {
   await db.runAsync(
-    `INSERT OR IGNORE INTO lancamentos (conta_fixa_id, descricao, valor_centavos, categoria, mes, vencimento)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    c.id, c.nome, c.valor_centavos, c.categoria, mes, vencimentoNoMes(mes, c.dia_vencimento),
+    `INSERT OR IGNORE INTO lancamentos (conta_fixa_id, tipo, descricao, valor_centavos, categoria, mes, vencimento)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    c.id, c.tipo, c.nome, c.valor_centavos, c.categoria, mes, vencimentoNoMes(mes, c.dia_vencimento),
   );
 }
 
@@ -146,7 +165,7 @@ async function inserirLancamentoDaConta(db: SQLiteDatabase, c: ContaFixa, mes: M
 // Contas fixas
 // ---------------------------------------------------------------------------
 export function listarContasFixas(db: SQLiteDatabase) {
-  return db.getAllAsync<ContaFixa>('SELECT * FROM contas_fixas ORDER BY ativa DESC, dia_vencimento, nome');
+  return db.getAllAsync<ContaFixa>('SELECT * FROM contas_fixas ORDER BY ativa DESC, tipo DESC, dia_vencimento, nome');
 }
 
 export function buscarContaFixa(db: SQLiteDatabase, id: number) {
@@ -165,14 +184,14 @@ export function salvarContaFixa(db: SQLiteDatabase, id: number | null, dados: Da
     let contaId = id;
     if (contaId == null) {
       const r = await db.runAsync(
-        'INSERT INTO contas_fixas (nome, valor_centavos, dia_vencimento, categoria, ativa) VALUES (?, ?, ?, ?, ?)',
-        dados.nome, dados.valor_centavos, dados.dia_vencimento, dados.categoria, dados.ativa,
+        'INSERT INTO contas_fixas (tipo, nome, valor_centavos, dia_vencimento, categoria, ativa) VALUES (?, ?, ?, ?, ?, ?)',
+        dados.tipo, dados.nome, dados.valor_centavos, dados.dia_vencimento, dados.categoria, dados.ativa,
       );
       contaId = r.lastInsertRowId;
     } else {
       await db.runAsync(
-        'UPDATE contas_fixas SET nome = ?, valor_centavos = ?, dia_vencimento = ?, categoria = ?, ativa = ? WHERE id = ?',
-        dados.nome, dados.valor_centavos, dados.dia_vencimento, dados.categoria, dados.ativa, contaId,
+        'UPDATE contas_fixas SET tipo = ?, nome = ?, valor_centavos = ?, dia_vencimento = ?, categoria = ?, ativa = ? WHERE id = ?',
+        dados.tipo, dados.nome, dados.valor_centavos, dados.dia_vencimento, dados.categoria, dados.ativa, contaId,
       );
     }
 
@@ -201,10 +220,10 @@ export function listarLancamentosDoMes(db: SQLiteDatabase, mes: Mes) {
   return db.getAllAsync<Lancamento>('SELECT * FROM lancamentos WHERE mes = ? ORDER BY vencimento, descricao', mes);
 }
 
-/** Tudo que não foi pago até `ate` (inclui atrasados). */
+/** Despesas não pagas até `ate` (inclui atrasadas). Receitas não geram lembrete. */
 export function listarPendentes(db: SQLiteDatabase, ate: DataISO) {
   return db.getAllAsync<Lancamento>(
-    'SELECT * FROM lancamentos WHERE pago_em IS NULL AND vencimento <= ? ORDER BY vencimento, descricao',
+    "SELECT * FROM lancamentos WHERE tipo = 'despesa' AND pago_em IS NULL AND vencimento <= ? ORDER BY vencimento, descricao",
     ate,
   );
 }
@@ -213,18 +232,47 @@ export function buscarLancamento(db: SQLiteDatabase, id: number) {
   return db.getFirstAsync<Lancamento>('SELECT * FROM lancamentos WHERE id = ?', id);
 }
 
-export type DadosLancamento = Pick<Lancamento, 'descricao' | 'valor_centavos' | 'categoria' | 'vencimento' | 'pago_em'>;
+export type DadosLancamento = Pick<Lancamento, 'tipo' | 'descricao' | 'valor_centavos' | 'categoria' | 'vencimento' | 'pago_em'>;
 
 export function salvarLancamento(db: SQLiteDatabase, id: number | null, d: DadosLancamento) {
   return emFila(() => id == null
     ? db.runAsync(
-      'INSERT INTO lancamentos (descricao, valor_centavos, categoria, mes, vencimento, pago_em) VALUES (?, ?, ?, ?, ?, ?)',
-      d.descricao, d.valor_centavos, d.categoria, mesDe(d.vencimento), d.vencimento, d.pago_em,
+      'INSERT INTO lancamentos (tipo, descricao, valor_centavos, categoria, mes, vencimento, pago_em) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      d.tipo, d.descricao, d.valor_centavos, d.categoria, mesDe(d.vencimento), d.vencimento, d.pago_em,
     )
     : db.runAsync(
-      'UPDATE lancamentos SET descricao = ?, valor_centavos = ?, categoria = ?, mes = ?, vencimento = ?, pago_em = ? WHERE id = ?',
-      d.descricao, d.valor_centavos, d.categoria, mesDe(d.vencimento), d.vencimento, d.pago_em, id,
+      'UPDATE lancamentos SET tipo = ?, descricao = ?, valor_centavos = ?, categoria = ?, mes = ?, vencimento = ?, pago_em = ? WHERE id = ?',
+      d.tipo, d.descricao, d.valor_centavos, d.categoria, mesDe(d.vencimento), d.vencimento, d.pago_em, id,
     ));
+}
+
+/**
+ * Compra parcelada: cria uma despesa por mês, no mesmo dia da primeira parcela.
+ * `d.valor_centavos` é o valor de cada parcela; `d.pago_em` vale só para a primeira.
+ */
+export function criarParcelado(db: SQLiteDatabase, d: DadosLancamento, parcelas: number) {
+  const grupo = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+  const mesInicial = mesDe(d.vencimento);
+  const dia = Number(d.vencimento.slice(8, 10));
+  return emFila(() => db.withTransactionAsync(async () => {
+    for (let i = 0; i < parcelas; i++) {
+      const mes = somarMeses(mesInicial, i);
+      await db.runAsync(
+        `INSERT INTO lancamentos (tipo, descricao, valor_centavos, categoria, mes, vencimento, pago_em, parcela_grupo, parcela_num, parcela_total)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        d.tipo, d.descricao, d.valor_centavos, d.categoria, mes, vencimentoNoMes(mes, dia),
+        i === 0 ? d.pago_em : null, grupo, i + 1, parcelas,
+      );
+    }
+  }));
+}
+
+/** Exclui esta parcela e as seguintes (ex.: compra cancelada ou quitada antes). */
+export function excluirParcelasDesde(db: SQLiteDatabase, l: Lancamento) {
+  return emFila(() => db.runAsync(
+    'DELETE FROM lancamentos WHERE parcela_grupo = ? AND parcela_num >= ?',
+    l.parcela_grupo, l.parcela_num,
+  ));
 }
 
 export function alternarPago(db: SQLiteDatabase, l: Lancamento) {
@@ -233,4 +281,18 @@ export function alternarPago(db: SQLiteDatabase, l: Lancamento) {
 
 export function excluirLancamento(db: SQLiteDatabase, id: number) {
   return emFila(() => db.runAsync('DELETE FROM lancamentos WHERE id = ?', id));
+}
+
+// ---------------------------------------------------------------------------
+// Relatórios
+// ---------------------------------------------------------------------------
+export function totaisPorMes(db: SQLiteDatabase, de: Mes, ate: Mes) {
+  return db.getAllAsync<{ mes: Mes; tipo: Tipo; total: number }>(
+    'SELECT mes, tipo, SUM(valor_centavos) AS total FROM lancamentos WHERE mes BETWEEN ? AND ? GROUP BY mes, tipo',
+    de, ate,
+  );
+}
+
+export function listarTodosLancamentos(db: SQLiteDatabase) {
+  return db.getAllAsync<Lancamento>('SELECT * FROM lancamentos ORDER BY vencimento, id');
 }
