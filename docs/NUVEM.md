@@ -14,10 +14,15 @@ O script cria as tabelas `contas_fixas`, `lancamentos`, `meses_gerados` e `prefe
 
 Em **Authentication → Sign In / Providers → Email**:
 
+- **Allow new users to sign up** (seção "User Signups"): ligado
 - **Enable Email provider**: ligado
-- **Confirm email**: ligado (a conta só é criada depois de confirmar o código)
+- **Confirm email**: **desligado** enquanto não houver um SMTP próprio funcionando. Com ele ligado, criar conta exige enviar e-mail; se o envio falhar, o cadastro inteiro falha ("Error sending confirmation email"). Ligue de novo depois de configurar o SMTP (passo 2.1).
 - **Minimum password length**: `8`
 - **Password requirements**: "Lowercase, uppercase letters and digits" (ou "Letters and digits")
+
+### 2.1 SMTP próprio (para confirmar e-mail e "Esqueci minha senha")
+
+O Supabase só permite editar os modelos de e-mail com um SMTP próprio. Recomendado: **Brevo** (grátis até 300 e-mails/dia, sem precisar de domínio). Host `smtp-relay.brevo.com`, porta `587`, usuário = "Login" da página SMTP do Brevo, senha = "SMTP key". O Gmail com senha de app também funciona, mas recusa credenciais com facilidade (erro `535 Username and Password not accepted`).
 
 Em **Authentication → Emails → Templates**, troque o corpo destes três modelos por um texto que mostre o código:
 
@@ -85,5 +90,7 @@ Em **Integrations → Cron → Create job**:
 |---|---|
 | "Could not find the table 'public.lancamentos'" | O SQL do passo 1 não foi executado |
 | O e-mail chega com link em vez de código | Falta `{{ .Token }}` no modelo (passo 2). O link ainda funciona: ao abri-lo a conta é confirmada (a página "localhost" que dá erro pode ser ignorada); volte ao app e toque em "Já confirmei pelo link" ou entre com e-mail e senha |
+| "Error sending confirmation email" ao criar conta | O SMTP falhou (veja o motivo em Logs → **Auth**, não em API Gateway). Desligue "Confirm email" ou corrija o SMTP |
+| "Email signups are disabled" | "Enable Email provider" ou "Allow new users to sign up" foi desligado por engano |
 | "Muitos e-mails enviados" | Limite do e-mail padrão do Supabase: espere 1 hora ou configure SMTP |
 | Ajustes mostra "alterações aguardando internet" | Sem conexão ou tabelas ausentes; toque em "Sincronizar agora" para ver o erro |

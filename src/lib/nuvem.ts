@@ -113,7 +113,8 @@ function traduzir(e: { message: string; code?: string; status?: number }): Error
     over_email_send_rate_limit: 'Muitos e-mails enviados. Aguarde alguns minutos e tente de novo.',
     over_request_rate_limit: 'Muitas tentativas. Aguarde alguns minutos.',
     same_password: 'A nova senha precisa ser diferente da atual.',
-    signup_disabled: 'Cadastro desativado no servidor.',
+    signup_disabled: 'Cadastro desativado no servidor (Supabase: Authentication → Sign In / Providers → "Allow new users to sign up").',
+    email_provider_disabled: 'Login por e-mail desativado no servidor (Supabase: Authentication → Sign In / Providers → Email → "Enable Email provider").',
   };
   if (e.code && porCodigo[e.code]) return new Error(porCodigo[e.code]);
   if (/sending .*email|smtp/i.test(e.message)) {
