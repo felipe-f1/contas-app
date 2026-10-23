@@ -1,13 +1,14 @@
 {
   "expo": {
-    "name": "contas-app",
+    "name": "Contas",
     "slug": "contas-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.contasapp.lembretes"
     },
     "android": {
       "adaptiveIcon": {
@@ -16,10 +17,32 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.contasapp.lembretes"
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-sqlite",
+      "@react-native-community/datetimepicker",
+      [
+        "expo-notifications",
+        {
+          "color": "#0E7C66"
+        }
+      ],
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "O app cria eventos na sua agenda para lembrar dos vencimentos das contas."
+        }
+      ]
+    ],
+    "scheme": "contas",
+    "experiments": {
+      "typedRoutes": true
     }
   }
 }

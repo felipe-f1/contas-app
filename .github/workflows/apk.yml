@@ -1,0 +1,67 @@
+name: APK Android
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apk
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      APP_VERSION_CODE: ${{ github.run_number }}
+      EXPO_PUBLIC_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
+    steps:
+      - name: Verificar secret da assinatura
+        if: env.ANDROID_KEYSTORE_PASSWORD == ''
+        run: |
+          echo "::error::Crie o secret ANDROID_KEYSTORE_PASSWORD em Settings > Secrets and variables > Actions."
+          exit 1
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - run: npm ci
+
+      - name: Testes, tipos e lint
+        run: npm test && npm run typecheck && npx eslint .
+
+      - name: Gerar projeto Android
+        run: npx expo prebuild --platform android --no-install
+
+      - name: Compilar APK
+        working-directory: android
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Publicar release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: Contas 1.0.${{ github.run_number }}
+          files: android/app/build/outputs/apk/release/app-release.apk
+          body: |
+            📲 **Para instalar:** abra esta página no celular Android, toque em `app-release.apk` e confirme a instalação
+            (na primeira vez, permita "instalar apps desconhecidos" para o navegador).
+
+            Alteração: ${{ github.event.head_commit.message }}
