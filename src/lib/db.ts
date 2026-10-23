@@ -36,9 +36,23 @@ export type Config = {
   hora: number;
   agendaAtiva: boolean;
   agendaId: string | null;
+  emailSemanal: boolean;
+  /** Só fica ativo depois que o usuário decide entre restaurar ou manter os dados locais. */
+  backupAtivo: boolean;
+  backupHash: string | null;
+  backupEm: string | null;
 };
 
-const CONFIG_PADRAO: Config = { diasAntes: 3, hora: 9, agendaAtiva: false, agendaId: null };
+const CONFIG_PADRAO: Config = {
+  diasAntes: 3,
+  hora: 9,
+  agendaAtiva: false,
+  agendaId: null,
+  emailSemanal: false,
+  backupAtivo: false,
+  backupHash: null,
+  backupEm: null,
+};
 
 // ---------------------------------------------------------------------------
 // Migrações: cada versão nova é um bloco `if (versao < N)`. Nunca edite um bloco
@@ -295,4 +309,59 @@ export function totaisPorMes(db: SQLiteDatabase, de: Mes, ate: Mes) {
 
 export function listarTodosLancamentos(db: SQLiteDatabase) {
   return db.getAllAsync<Lancamento>('SELECT * FROM lancamentos ORDER BY vencimento, id');
+}
+
+// ---------------------------------------------------------------------------
+// Backup: "foto" completa dos dados, independente do aparelho
+// (a agenda escolhida e o estado do backup ficam de fora).
+// ---------------------------------------------------------------------------
+export type Snapshot = {
+  versao: 1;
+  contas_fixas: ContaFixa[];
+  lancamentos: Lancamento[];
+  meses_gerados: Mes[];
+  config: Pick<Config, 'diasAntes' | 'hora' | 'emailSemanal'>;
+};
+
+const COLUNAS_CONTA: (keyof ContaFixa)[] = ['id', 'tipo', 'nome', 'valor_centavos', 'dia_vencimento', 'categoria', 'ativa'];
+const COLUNAS_LANCAMENTO: (keyof Lancamento)[] = [
+  'id', 'conta_fixa_id', 'tipo', 'descricao', 'valor_centavos', 'categoria', 'mes', 'vencimento', 'pago_em',
+  'parcela_grupo', 'parcela_num', 'parcela_total',
+];
+
+export async function exportarDados(db: SQLiteDatabase): Promise<Snapshot> {
+  const config = await lerConfig(db);
+  return {
+    versao: 1,
+    contas_fixas: await db.getAllAsync<ContaFixa>(`SELECT ${COLUNAS_CONTA.join(', ')} FROM contas_fixas ORDER BY id`),
+    lancamentos: await db.getAllAsync<Lancamento>(`SELECT ${COLUNAS_LANCAMENTO.join(', ')} FROM lancamentos ORDER BY id`),
+    meses_gerados: (await db.getAllAsync<{ mes: Mes }>('SELECT mes FROM meses_gerados ORDER BY mes')).map((m) => m.mes),
+    config: { diasAntes: config.diasAntes, hora: config.hora, emailSemanal: config.emailSemanal },
+  };
+}
+
+/** Substitui todos os dados locais pelo backup (numa transação: ou tudo, ou nada). */
+export function importarDados(db: SQLiteDatabase, snap: Snapshot) {
+  return emFila(() => db.withTransactionAsync(async () => {
+    await db.execAsync('DELETE FROM lancamentos; DELETE FROM contas_fixas; DELETE FROM meses_gerados;');
+    for (const c of snap.contas_fixas) {
+      await db.runAsync(
+        `INSERT INTO contas_fixas (${COLUNAS_CONTA.join(', ')}) VALUES (${COLUNAS_CONTA.map(() => '?').join(', ')})`,
+        COLUNAS_CONTA.map((k) => c[k]),
+      );
+    }
+    for (const l of snap.lancamentos) {
+      await db.runAsync(
+        `INSERT INTO lancamentos (${COLUNAS_LANCAMENTO.join(', ')}) VALUES (${COLUNAS_LANCAMENTO.map(() => '?').join(', ')})`,
+        COLUNAS_LANCAMENTO.map((k) => l[k]),
+      );
+    }
+    for (const mes of snap.meses_gerados) await db.runAsync('INSERT INTO meses_gerados (mes) VALUES (?)', mes);
+    for (const [chave, valor] of Object.entries(snap.config)) {
+      await db.runAsync(
+        'INSERT INTO config (chave, valor) VALUES (?, ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor',
+        chave, JSON.stringify(valor),
+      );
+    }
+  }));
 }

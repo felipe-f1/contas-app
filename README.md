@@ -9,18 +9,21 @@ App de celular (Android e iOS) para lembrar das contas a vencer e controlar os g
 - **Contas fixas**: aluguel, luz, internet, cartão... Entram sozinhas em todo mês. Se o valor varia, você ajusta o valor real no lançamento do mês.
 - **Lembretes no celular**: aviso X dias antes (configurável) e no dia do vencimento, no horário que você escolher. Contas do mesmo dia viram uma notificação só.
 - **Google Agenda**: cada conta pendente vira um evento com alerta na agenda escolhida. Contas pagas, editadas ou apagadas são removidas da agenda automaticamente.
+- **Parcelas e receitas**: compras parceladas (3/10), salário e outras entradas, com o saldo do mês.
+- **Gráfico**: receitas x despesas dos últimos 6 meses.
+- **Planilha**: exporta tudo em CSV, que abre no Excel ou no Google Planilhas.
+- **Backup na nuvem**: login por código no e-mail; o backup é automático a cada mudança.
+- **Resumo semanal por e-mail**: toda segunda, as contas atrasadas e as da semana.
 
-## Como rodar no seu celular
+## Instalar no celular (Android)
 
-1. Instale o app **Expo Go** no celular (Play Store / App Store).
-2. No computador, com [Node.js 22+](https://nodejs.org) instalado:
-   ```bash
-   npm install
-   npx expo start
-   ```
-3. Escaneie o QR code com a câmera (iPhone) ou com o Expo Go (Android).
+Cada envio para a branch `main` gera um APK novo em **[Releases](../../releases)**. Abra a página no celular, toque em `app-release.apk` e instale. As atualizações são instaladas por cima, sem perder dados.
 
-> Para instalar como um app de verdade, sem o Expo Go: `npx eas-cli@latest build --profile preview --platform android` gera um APK.
+Configuração inicial (uma vez): em **Settings → Secrets and variables → Actions**, crie o secret `ANDROID_KEYSTORE_PASSWORD` com a senha da chave de assinatura em `android-signing/`.
+
+Para desenvolver com recarga instantânea: `npm install`, depois `npx expo start`, e abra pelo app **Expo Go**.
+
+Backup na nuvem e e-mail: siga **[docs/NUVEM.md](docs/NUVEM.md)**.
 
 ## Arquitetura
 
@@ -30,6 +33,8 @@ App de celular (Android e iOS) para lembrar das contas a vencer e controlar os g
 | SQLite local (`expo-sqlite`) | Funciona offline e os dados ficam no seu aparelho |
 | Notificações **locais** (`expo-notifications`) | O celular agenda o alerta sozinho, sem servidor |
 | Calendário do aparelho (`expo-calendar/legacy`) | Sincroniza com o Google Agenda pela conta Google do celular, sem login no app |
+| Supabase (opcional) | Backup como "foto" JSON por usuário com RLS; a Edge Function envia o e-mail via Resend |
+| APK pelo GitHub Actions | Instalação sem loja e sem conta Expo; a chave fixa permite atualizar sem desinstalar |
 | Valores em centavos (inteiros) | `float` gera erro de arredondamento com dinheiro |
 | Datas como texto `YYYY-MM-DD` | Vencimento dia 10 é dia 10 em qualquer fuso |
 
@@ -42,9 +47,13 @@ src/
   components/           UI reutilizável
   lib/
     db.ts               schema, migrações e consultas
-    sincronizar.ts      notificações + Google Agenda
+    sincronizar.ts      notificações + Google Agenda + backup automático
+    nuvem.ts            login e backup no Supabase
     planejarLembretes.ts regra dos lembretes (pura, testada)
+    relatorios.ts       resumo do mês, gráfico e CSV (puro, testado)
     datas.ts, dinheiro.ts
+supabase/               SQL da tabela e Edge Function do e-mail semanal
+plugins/                config plugin de assinatura do APK
 tests/                  testes das regras de negócio
 ```
 
@@ -58,10 +67,8 @@ npm run typecheck  # TypeScript
 npm run lint       # ESLint
 ```
 
-## Próximas fases
+## Próximas ideias
 
-- [ ] **E-mail**: resumo semanal no Gmail. Exige um backend pequeno (ex.: Supabase + função agendada).
-- [ ] Backup e sincronização na nuvem (trocar de celular sem perder dados)
 - [ ] Importar CSV da planilha antiga
-- [ ] Parcelamentos (ex.: 3/10) e receitas, para mostrar o saldo do mês
-- [ ] Gráfico de evolução dos gastos mês a mês
+- [ ] Widget na tela inicial do Android com as contas da semana
+- [ ] Anexar foto do comprovante de pagamento

@@ -6,6 +6,8 @@ import { Platform } from 'react-native';
 import { hojeISO, paraDate, somarDias } from './datas';
 import { type Config, type Lancamento, gerarMesesPendentes, lerConfig, listarPendentes } from './db';
 import { formatarBRL } from './dinheiro';
+import { hashTexto } from './hash';
+import { enviarBackup } from './nuvem';
 import { planejarLembretes } from './planejarLembretes';
 
 const CANAL_ANDROID = 'vencimentos';
@@ -117,9 +119,7 @@ export async function limparAgenda(calendarioId: string) {
 
 function marcaDe(l: Lancamento, c: Config) {
   const assinatura = [l.descricao, l.valor_centavos, l.vencimento, c.hora, c.diasAntes].join('|');
-  let h = 5381;
-  for (let i = 0; i < assinatura.length; i++) h = ((h << 5) + h + assinatura.charCodeAt(i)) >>> 0;
-  return `[contas-app:${l.id}:${h.toString(36)}]`;
+  return `[contas-app:${l.id}:${hashTexto(assinatura)}]`;
 }
 
 // ---------------------------------------------------------------------------
@@ -140,6 +140,7 @@ export function sincronizar(db: SQLiteDatabase): Promise<void> {
         const limite = somarDias(hoje, -JANELA_PASSADO_DIAS);
         await reconciliarAgenda(config.agendaId, pendentes.filter((l) => l.vencimento >= limite), config);
       }
+      if (config.backupAtivo) await enviarBackup(db).catch((e) => console.warn('Backup adiado', e));
     })
     .catch((e) => console.warn('Falha ao sincronizar lembretes', e));
   return fila;

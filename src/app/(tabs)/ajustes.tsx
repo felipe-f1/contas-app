@@ -4,6 +4,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
 import { Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 
+import { SecaoNuvem } from '../../components/SecaoNuvem';
 import { Contador } from '../../components/campos';
 import { Botao, Cartao, TituloSecao, estilos } from '../../components/ui';
 import { type Config, lerConfig, salvarConfig } from '../../lib/db';
@@ -147,13 +148,7 @@ export default function Ajustes() {
         />
       </Cartao>
 
-      <TituloSecao>E-mail</TituloSecao>
-      <Cartao style={s.emBreve}>
-        <Ionicons name="mail-outline" size={22} color={cores.textoSuave} />
-        <Text style={[s.sub, { flex: 1 }]}>
-          Em breve: resumo semanal das contas por e-mail. Exige um pequeno servidor, que é a próxima fase do projeto.
-        </Text>
-      </Cartao>
+      <SecaoNuvem />
     </ScrollView>
   );
 }
@@ -176,5 +171,4 @@ const s = StyleSheet.create({
   sub: { fontSize: 13, color: cores.textoSuave, marginTop: 2, lineHeight: 18 },
   opcao: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 6 },
   opcaoTitulo: { fontSize: 15, color: cores.texto, fontWeight: '500' },
-  emBreve: { flexDirection: 'row', alignItems: 'center', gap: 12 },
 });
