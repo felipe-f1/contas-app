@@ -84,6 +84,6 @@ Em **Integrations → Cron → Create job**:
 | Sintoma | Causa provável |
 |---|---|
 | "Could not find the table 'public.lancamentos'" | O SQL do passo 1 não foi executado |
-| O e-mail chega com link em vez de código | Falta `{{ .Token }}` no modelo (passo 2) |
+| O e-mail chega com link em vez de código | Falta `{{ .Token }}` no modelo (passo 2). O link ainda funciona: ao abri-lo a conta é confirmada (a página "localhost" que dá erro pode ser ignorada); volte ao app e toque em "Já confirmei pelo link" ou entre com e-mail e senha |
 | "Muitos e-mails enviados" | Limite do e-mail padrão do Supabase: espere 1 hora ou configure SMTP |
 | Ajustes mostra "alterações aguardando internet" | Sem conexão ou tabelas ausentes; toque em "Sincronizar agora" para ver o erro |

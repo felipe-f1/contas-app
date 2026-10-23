@@ -1,10 +1,10 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
-import { Text } from 'react-native';
+import { useEffect, useState } from 'react';
+import { AppState, Text } from 'react-native';
 
 import { CampoCodigo, CampoEmail, CampoSenha, Link, Mensagem, TelaAuth } from '../components/formAuth';
 import { Botao } from '../components/ui';
-import { cadastrar, confirmarCadastro, reenviarCodigoCadastro } from '../lib/nuvem';
+import { cadastrar, confirmarCadastro, entrar, reenviarCodigoCadastro } from '../lib/nuvem';
 import { problemaNaSenha } from '../lib/regrasSync';
 import { cores } from '../lib/tema';
 
@@ -44,13 +44,30 @@ export default function Cadastrar() {
 
   const confirmar = () => executar(() => confirmarCadastro(email, codigo));
 
+  // Se o e-mail trouxer um link em vez do código, abrir o link já confirma a conta
+  // no servidor. Então, ao voltar para o app, tentamos entrar com a senha digitada.
+  const entrarAposLink = () =>
+    executar(async () => {
+      if (!senha) return router.replace({ pathname: '/entrar', params: { email } });
+      await entrar(email, senha);
+    });
+
+  useEffect(() => {
+    if (etapa !== 'codigo' || !senha) return;
+    const sub = AppState.addEventListener('change', (estado) => {
+      if (estado === 'active') entrar(email, senha).catch(() => {});
+    });
+    return () => sub.remove();
+  }, [etapa, email, senha]);
+
   if (etapa === 'codigo') {
     return (
-      <TelaAuth titulo="Confirme seu e-mail" subtitulo={`Enviamos um código para ${email}`}>
+      <TelaAuth titulo="Confirme seu e-mail" subtitulo={`Enviamos um e-mail para ${email}. Digite o código ou toque no link do e-mail e volte para cá.`}>
         <CampoCodigo valor={codigo} onChange={setCodigo} />
         <Mensagem texto={erro} />
         <Mensagem texto={info} tipo="info" />
         <Botao titulo="Confirmar" icone="checkmark" onPress={confirmar} desabilitado={ocupado || codigo.length < 6} />
+        <Botao titulo="Já confirmei pelo link do e-mail" variante="secundario" icone="link-outline" onPress={entrarAposLink} desabilitado={ocupado} />
         <Link
           texto="Reenviar código"
           onPress={() => executar(async () => { await reenviarCodigoCadastro(email); setInfo('Novo código enviado.'); })}
