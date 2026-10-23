@@ -60,17 +60,21 @@ function Navegacao() {
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="lancamento/[id]" options={{ presentation: 'modal', title: 'Lançamento' }} />
           <Stack.Screen name="conta/[id]" options={{ presentation: 'modal', title: 'Conta fixa' }} />
+          <Stack.Screen name="trocar-senha" options={{ presentation: 'modal', title: 'Trocar senha' }} />
         </Stack.Protected>
 
-        {/* Sem conta: entrar, cadastrar, recuperar senha */}
+        {/* Sem conta: entrar, cadastrar, recuperar senha. Ficam na raiz (sem grupo):
+            um grupo sem index deixa a rota "/" sem destino ("Unmatched Route"). */}
         <Stack.Protected guard={!logado}>
-          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+          <Stack.Screen name="entrar" options={{ headerShown: false }} />
+          <Stack.Screen name="cadastrar" options={{ headerShown: false }} />
+          <Stack.Screen name="recuperar" options={{ headerShown: false }} />
         </Stack.Protected>
 
-        {/* Com conta: criar/alterar PIN e trocar senha */}
+        {/* Com conta: criar/alterar PIN. Logado sem PIN, é a ÚNICA tela liberada,
+            para o redirecionamento cair sempre nela. */}
         <Stack.Protected guard={logado}>
           <Stack.Screen name="configurar-pin" options={{ title: 'PIN de acesso', headerBackVisible: pinDefinido }} />
-          <Stack.Screen name="trocar-senha" options={{ presentation: 'modal', title: 'Trocar senha' }} />
         </Stack.Protected>
       </Stack>
       {logado && pinDefinido && bloqueado && <TelaBloqueio />}

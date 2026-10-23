@@ -2,11 +2,11 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Text } from 'react-native';
 
-import { CampoCodigo, CampoEmail, CampoSenha, Link, Mensagem, TelaAuth } from '../../components/formAuth';
-import { Botao } from '../../components/ui';
-import { cadastrar, confirmarCadastro, reenviarCodigoCadastro } from '../../lib/nuvem';
-import { problemaNaSenha } from '../../lib/regrasSync';
-import { cores } from '../../lib/tema';
+import { CampoCodigo, CampoEmail, CampoSenha, Link, Mensagem, TelaAuth } from '../components/formAuth';
+import { Botao } from '../components/ui';
+import { cadastrar, confirmarCadastro, reenviarCodigoCadastro } from '../lib/nuvem';
+import { problemaNaSenha } from '../lib/regrasSync';
+import { cores } from '../lib/tema';
 
 export default function Cadastrar() {
   const params = useLocalSearchParams<{ email?: string; etapa?: 'codigo' }>();

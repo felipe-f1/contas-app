@@ -1,9 +1,9 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 
-import { CampoEmail, CampoSenha, Link, Mensagem, TelaAuth } from '../../components/formAuth';
-import { Botao } from '../../components/ui';
-import { entrar } from '../../lib/nuvem';
+import { CampoEmail, CampoSenha, Link, Mensagem, TelaAuth } from '../components/formAuth';
+import { Botao } from '../components/ui';
+import { entrar } from '../lib/nuvem';
 
 export default function Entrar() {
   const [email, setEmail] = useState('');

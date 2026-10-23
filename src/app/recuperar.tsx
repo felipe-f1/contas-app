@@ -1,10 +1,10 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 
-import { CampoCodigo, CampoEmail, CampoSenha, Link, Mensagem, TelaAuth } from '../../components/formAuth';
-import { Botao } from '../../components/ui';
-import { pedirCodigoRecuperacao, redefinirSenha } from '../../lib/nuvem';
-import { problemaNaSenha } from '../../lib/regrasSync';
+import { CampoCodigo, CampoEmail, CampoSenha, Link, Mensagem, TelaAuth } from '../components/formAuth';
+import { Botao } from '../components/ui';
+import { pedirCodigoRecuperacao, redefinirSenha } from '../lib/nuvem';
+import { problemaNaSenha } from '../lib/regrasSync';
 
 export default function Recuperar() {
   const params = useLocalSearchParams<{ email?: string }>();
