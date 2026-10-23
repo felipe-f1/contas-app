@@ -1,7 +1,7 @@
 import * as LocalAuthentication from 'expo-local-authentication';
 import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { TecladoPin } from '../components/TecladoPin';
@@ -17,6 +17,18 @@ export default function ConfigurarPin() {
   const [primeiro, setPrimeiro] = useState<string | null>(null);
   const [pin, setPin] = useState('');
   const [mensagem, setMensagem] = useState<string | null>(null);
+  const [salvo, setSalvo] = useState(false);
+  // Guardado na montagem: a tela serve tanto para criar quanto para alterar o PIN.
+  const [eraAlteracao] = useState(pinDefinido);
+
+  // Esta tela continua liberada depois do PIN criado (para "Alterar PIN"), então
+  // o redirecionamento automático não acontece: saímos daqui explicitamente,
+  // depois que a sessão já registrou o PIN (senão "/" ainda estaria bloqueada).
+  useEffect(() => {
+    if (!salvo || !pinDefinido) return;
+    if (eraAlteracao) router.back();
+    else router.replace('/');
+  }, [salvo, pinDefinido, eraAlteracao]);
 
   async function digitar(v: string) {
     setMensagem(null);
@@ -40,13 +52,19 @@ export default function ConfigurarPin() {
       return;
     }
 
-    await definirPin(v);
-    await salvarConfig(db, { tentativasPin: 0 });
-    const temBiometria = (await LocalAuthentication.hasHardwareAsync()) && (await LocalAuthentication.isEnrolledAsync());
-    await salvarConfig(db, { biometria: temBiometria });
-    const eraAlteracao = pinDefinido;
-    pinCriado();
-    if (eraAlteracao) router.back();
+    try {
+      await definirPin(v);
+      await salvarConfig(db, { tentativasPin: 0 });
+      const temBiometria = (await LocalAuthentication.hasHardwareAsync()) && (await LocalAuthentication.isEnrolledAsync());
+      await salvarConfig(db, { biometria: temBiometria });
+      pinCriado();
+      setSalvo(true);
+    } catch (e) {
+      // Nunca deixar a tela parada sem explicação.
+      setMensagem(`Não foi possível salvar o PIN: ${(e as Error).message}`);
+      setPrimeiro(null);
+      setPin('');
+    }
   }
 
   return (

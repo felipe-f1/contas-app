@@ -1,15 +1,36 @@
 // Renderiza as rotas REAIS de src/app e verifica para onde o app vai em cada
 // estado de login. Sessão e banco são simulados; o resto é o código do app.
 import { beforeEach, expect, jest, test } from '@jest/globals';
-import { renderRouter, screen } from 'expo-router/testing-library';
+import { act, fireEvent, renderRouter, screen } from 'expo-router/testing-library';
 
 jest.setTimeout(30_000);
 
 const estado = { carregando: false, usuario: null as null | { id: string; email: string }, pinDefinido: false, bloqueado: false };
 
-jest.mock('../../src/lib/sessao', () => ({
-  SessaoProvider: ({ children }: { children: React.ReactNode }) => children,
-  useSessao: () => ({ ...estado, desbloquear: jest.fn(), pinCriado: jest.fn(), sair: jest.fn(), aplicarProtecaoDeTela: jest.fn() }),
+// Sessão simulada com estado React de verdade: pinCriado() muda o estado e
+// re-renderiza a navegação, como o SessaoProvider real.
+jest.mock('../../src/lib/sessao', () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const React = require('react');
+  const Ctx = React.createContext(null);
+  function SessaoProvider({ children }: { children: React.ReactNode }) {
+    const [s, setS] = React.useState(() => ({ ...estado }));
+    const valor = {
+      ...s,
+      desbloquear: () => setS((a: typeof estado) => ({ ...a, bloqueado: false })),
+      pinCriado: () => setS((a: typeof estado) => ({ ...a, pinDefinido: true })),
+      sair: () => Promise.resolve(),
+      aplicarProtecaoDeTela: () => Promise.resolve(),
+    };
+    return React.createElement(Ctx.Provider, { value: valor }, children);
+  }
+  return { SessaoProvider, useSessao: () => React.useContext(Ctx) };
+});
+
+jest.mock('expo-local-authentication', () => ({
+  hasHardwareAsync: () => Promise.resolve(false),
+  isEnrolledAsync: () => Promise.resolve(false),
+  authenticateAsync: () => Promise.resolve({ success: false }),
 }));
 
 jest.mock('../../src/lib/cofre', () => ({
@@ -17,6 +38,7 @@ jest.mock('../../src/lib/cofre', () => ({
   migrarBancoSemCriptografia: () => Promise.resolve(),
   destrancarBanco: () => Promise.resolve(),
   temPin: () => Promise.resolve(false),
+  definirPin: () => Promise.resolve(),
 }));
 
 jest.mock('expo-sqlite', () => {
@@ -66,6 +88,22 @@ test('logado com PIN: abre na aba A pagar', async () => {
   estado.usuario = { id: 'u1', email: 'a@x.com' };
   estado.pinDefinido = true;
   const app = await abrirApp();
+  expect(await screen.findByText('Falta pagar em', { exact: false })).toBeTruthy();
+  expect(app.getPathname()).toBe('/');
+});
+
+test('depois de criar o PIN, o app sai da tela do PIN e abre A pagar', async () => {
+  estado.usuario = { id: 'u1', email: 'a@x.com' };
+  const app = await abrirApp();
+  expect(await screen.findByText('Crie um PIN de 6 dígitos')).toBeTruthy();
+
+  const digitar = async (pin: string) => {
+    for (const d of pin) await act(async () => fireEvent.press(screen.getByLabelText(d)));
+  };
+  await digitar('482915');
+  expect(await screen.findByText('Confirme o PIN')).toBeTruthy();
+  await digitar('482915');
+
   expect(await screen.findByText('Falta pagar em', { exact: false })).toBeTruthy();
   expect(app.getPathname()).toBe('/');
 });

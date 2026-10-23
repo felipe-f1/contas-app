@@ -116,6 +116,9 @@ function traduzir(e: { message: string; code?: string; status?: number }): Error
     signup_disabled: 'Cadastro desativado no servidor.',
   };
   if (e.code && porCodigo[e.code]) return new Error(porCodigo[e.code]);
+  if (/sending .*email|smtp/i.test(e.message)) {
+    return new Error('O servidor não conseguiu enviar o e-mail. Verifique a configuração de SMTP no Supabase (Authentication → Emails → SMTP).');
+  }
   if (/network|fetch/i.test(e.message)) return new Error('Sem conexão com a internet.');
   return new Error(e.message);
 }
