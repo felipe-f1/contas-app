@@ -45,7 +45,7 @@ jobs:
       - run: npm ci
 
       - name: Testes, tipos e lint
-        run: npm test && npm run typecheck && npx eslint .
+        run: npm test && npm run test:banco && npm run typecheck && npx eslint .
 
       - name: Gerar projeto Android
         run: npx expo prebuild --platform android --no-install

@@ -118,7 +118,7 @@ export default function Mes() {
           <ItemLancamento
             item={item}
             hoje={hoje}
-            onPress={() => router.push(`/lancamento/${item.id}`)}
+            onPress={() => router.push({ pathname: '/lancamento/[id]', params: { id: item.id } })}
             onAlternarPago={() => onAlternarPago(item)}
           />
         )}

@@ -12,7 +12,7 @@ import { categoriasDo, cores } from '../../lib/tema';
 export default function FormContaFixa() {
   const db = useSQLiteContext();
   const params = useLocalSearchParams<{ id: string }>();
-  const id = params.id === 'nova' ? null : Number(params.id);
+  const id = params.id === 'nova' ? null : params.id;
 
   const [tipo, setTipo] = useState<Tipo>('despesa');
   const [nome, setNome] = useState('');

@@ -1,85 +1,89 @@
-# Configurar backup na nuvem e resumo por e-mail
+# Configurar o Supabase (banco de dados e login)
 
-Leva uns 15 minutos, tudo pelo navegador e de graça. Você só faz isso uma vez.
+O app usa o projeto `hkvkqtcdvsappbgmkibz`. A URL e a chave pública já vêm embutidas no app. Faça os passos abaixo uma vez, pelo navegador.
 
-## 1. Criar o projeto no Supabase
+> **Nunca compartilhe** a senha do banco nem a chave `service_role` / `sb_secret_...`. Elas dão acesso total aos dados. A chave `sb_publishable_...` é pública por definição.
 
-1. Crie uma conta em [supabase.com](https://supabase.com) e clique em **New project**.
-2. Dê um nome (ex.: `contas`), crie uma senha do banco (guarde-a) e escolha a região **South America (São Paulo)**.
+## 1. Criar as tabelas
 
-## 2. Criar a tabela de backup
+No Supabase, abra **SQL Editor → New query**, cole **todo** o conteúdo de [`supabase/migrations/0002_sincronizacao.sql`](../supabase/migrations/0002_sincronizacao.sql) e clique em **Run**. Deve aparecer "Success. No rows returned".
 
-1. No menu lateral, abra o **SQL Editor**.
-2. Cole todo o conteúdo de [`supabase/migrations/0001_backups.sql`](../supabase/migrations/0001_backups.sql) e clique em **Run**.
+O script cria as tabelas `contas_fixas`, `lancamentos`, `meses_gerados` e `preferencias`, com as regras de segurança (RLS). Pode rodar de novo sem problema.
 
-## 3. Login por código no e-mail
+## 2. Login com e-mail e senha
 
-Em **Authentication → Emails → Templates**, edite os modelos **Magic Link** e **Confirm signup**. Em cada um, coloque no corpo:
+Em **Authentication → Sign In / Providers → Email**:
+
+- **Enable Email provider**: ligado
+- **Confirm email**: ligado (a conta só é criada depois de confirmar o código)
+- **Minimum password length**: `8`
+- **Password requirements**: "Lowercase, uppercase letters and digits" (ou "Letters and digits")
+
+Em **Authentication → Emails → Templates**, troque o corpo destes três modelos por um texto que mostre o código:
+
+| Modelo | Assunto sugerido |
+|---|---|
+| **Confirm signup** | Seu código para criar a conta |
+| **Reset Password** | Seu código para trocar a senha |
+| **Magic Link** | Seu código de acesso |
+
+Corpo, igual para os três:
 
 ```html
-<h2>Seu código de acesso</h2>
+<h2>Seu código</h2>
 <p style="font-size:28px;font-weight:bold;letter-spacing:6px">{{ .Token }}</p>
+<p>Se você não pediu este código, ignore este e-mail.</p>
 ```
 
-> O e-mail padrão do Supabase tem limite de poucos envios por hora. Para uso pessoal é suficiente.
+> O envio de e-mail do próprio Supabase tem limite de poucos e-mails por hora. Para uso pessoal basta. Para mais, configure um SMTP (ex.: Resend) em **Authentication → Emails → SMTP Settings**.
 
-## 4. Ligar o app ao Supabase
+## 3. Proteções recomendadas
 
-1. No Supabase, abra **Project Settings → API** e copie a **Project URL** e a chave **anon public**.
-2. No GitHub, abra o repositório e vá em **Settings → Secrets and variables → Actions → aba Variables → New repository variable**. Crie duas variáveis:
-   - `SUPABASE_URL` = a Project URL
-   - `SUPABASE_ANON_KEY` = a chave anon public
+- **Authentication → Attack Protection**: deixe o limite de tentativas ativo (padrão). Se aparecer a opção "Prevent use of leaked passwords", ative.
+- **Authentication → Sessions**: o padrão já está bom. O app renova o token sozinho.
 
-   A chave anon é pública por definição. Quem protege os dados são as regras RLS do passo 2.
-3. Gere um APK novo em **Actions → APK Android → Run workflow** e instale por cima do atual. Seus dados continuam no celular.
-
-Pronto: o backup já funciona. Em **Ajustes → Backup na nuvem**, entre com seu e-mail.
+Pronto: instale o APK novo, crie sua conta e defina o PIN.
 
 ---
 
-## 5. Resumo semanal por e-mail (opcional)
+## 4. Resumo semanal por e-mail (opcional)
 
-### 5.1 Chave do Resend
+### 4.1 Chave do Resend
 
-1. Crie uma conta em [resend.com](https://resend.com) **usando o mesmo e-mail com que você entra no app**. Sem um domínio próprio, o Resend só envia para o e-mail da conta, o que basta para uso pessoal.
+1. Crie uma conta em [resend.com](https://resend.com) **com o mesmo e-mail da sua conta no app**. Sem um domínio próprio, o Resend só envia para esse e-mail.
 2. Em **API Keys**, crie uma chave e copie.
 
-### 5.2 Publicar a função
+### 4.2 Publicar a função
 
-No Supabase, abra **Edge Functions → Deploy a new function → Via Editor**:
+Em **Edge Functions → Deploy a new function → Via Editor**:
 
 1. Nome: `resumo-semanal`.
 2. Cole o conteúdo de [`index.ts`](../supabase/functions/resumo-semanal/index.ts) no arquivo principal.
-3. Adicione um arquivo chamado `resumo.ts` com o conteúdo de [`resumo.ts`](../supabase/functions/resumo-semanal/resumo.ts).
+3. Adicione um arquivo `resumo.ts` com o conteúdo de [`resumo.ts`](../supabase/functions/resumo-semanal/resumo.ts).
 4. Clique em **Deploy**.
 
-> Se preferir usar o terminal: `npx supabase login`, depois `npx supabase link` e `npx supabase functions deploy resumo-semanal`.
-
-### 5.3 Secrets da função
+### 4.3 Secrets da função
 
 Em **Edge Functions → Secrets**, adicione:
 
 - `RESEND_API_KEY` = a chave do Resend
-- `CRON_SECRET` = um texto aleatório longo, inventado por você (ex.: gerado num gerador de senhas)
+- `CRON_SECRET` = um texto aleatório longo, inventado por você
 
 Teste no app: **Ajustes → Resumo por e-mail → Enviar um resumo agora**.
 
-### 5.4 Agendar toda segunda-feira
+### 4.4 Agendar toda segunda-feira
 
-Em **Integrations → Cron**, ative a integração e clique em **Create job**:
+Em **Integrations → Cron → Create job**:
 
-- **Name:** `resumo-semanal`
-- **Schedule:** `0 11 * * 1` (segunda às 11h UTC, que são 8h em Brasília)
+- **Schedule:** `0 11 * * 1` (segunda às 8h de Brasília)
 - **Type:** Supabase Edge Function → `resumo-semanal`, método **POST**
-- **Headers:** adicione `x-cron-secret` com o mesmo valor do `CRON_SECRET`
-
-No app, ative **Resumo semanal** em Ajustes. Só recebe e-mail quem ativou e tem contas atrasadas ou vencendo na semana.
+- **Headers:** `x-cron-secret` com o mesmo valor do `CRON_SECRET`
 
 ## Problemas comuns
 
 | Sintoma | Causa provável |
 |---|---|
-| App diz "Ainda não configurado" | As variáveis do passo 4 não existiam quando o APK foi gerado. Rode o workflow de novo |
-| O e-mail chega com link em vez de código | Falta `{{ .Token }}` nos templates do passo 3 |
-| "Resend recusou o envio (403)" | O e-mail do app é diferente do e-mail da conta no Resend |
-| Resumo de teste diz "Faça um backup antes" | Toque em "Fazer backup agora" e tente de novo |
+| "Could not find the table 'public.lancamentos'" | O SQL do passo 1 não foi executado |
+| O e-mail chega com link em vez de código | Falta `{{ .Token }}` no modelo (passo 2) |
+| "Muitos e-mails enviados" | Limite do e-mail padrão do Supabase: espere 1 hora ou configure SMTP |
+| Ajustes mostra "alterações aguardando internet" | Sem conexão ou tabelas ausentes; toque em "Sincronizar agora" para ver o erro |

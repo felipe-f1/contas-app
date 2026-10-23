@@ -11,8 +11,6 @@ import { createClient } from 'npm:@supabase/supabase-js@2.117.3';
 
 import { type LancamentoResumo, montarResumo } from './resumo.ts';
 
-type Backup = { user_id: string; dados: { lancamentos: LancamentoResumo[] } };
-
 const resposta = (status: number, corpo: unknown) =>
   new Response(JSON.stringify(corpo), { status, headers: { 'Content-Type': 'application/json' } });
 
@@ -20,23 +18,21 @@ Deno.serve(async (req) => {
   const chaveResend = Deno.env.get('RESEND_API_KEY');
   if (!chaveResend) return resposta(500, { erro: 'RESEND_API_KEY não configurada' });
 
+  // Service role: lê dados de vários usuários (só no modo agendado) e o e-mail de cada um.
   const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
   const segredoCron = Deno.env.get('CRON_SECRET');
   const ehCron = !!segredoCron && req.headers.get('x-cron-secret') === segredoCron;
 
-  let backups: Backup[];
+  let usuarios: string[];
   if (ehCron) {
-    const { data, error } = await admin.from('backups').select('user_id, dados').eq('email_semanal', true);
+    const { data, error } = await admin.from('preferencias').select('user_id').eq('email_semanal', true);
     if (error) return resposta(500, { erro: error.message });
-    backups = data as Backup[];
+    usuarios = data.map((p) => p.user_id);
   } else {
     const token = req.headers.get('Authorization')?.replace(/^Bearer /, '') ?? '';
     const { data: auth } = await admin.auth.getUser(token);
     if (!auth.user) return resposta(401, { erro: 'Não autorizado' });
-    const { data, error } = await admin.from('backups').select('user_id, dados').eq('user_id', auth.user.id).maybeSingle();
-    if (error) return resposta(500, { erro: error.message });
-    if (!data) return resposta(404, { erro: 'Faça um backup antes de pedir o resumo' });
-    backups = [data as Backup];
+    usuarios = [auth.user.id];
   }
 
   const hoje = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
@@ -44,11 +40,26 @@ Deno.serve(async (req) => {
   let enviados = 0;
   const falhas: string[] = [];
 
-  for (const b of backups) {
-    const resumo = montarResumo(b.dados.lancamentos ?? [], hoje);
+  for (const userId of usuarios) {
+    // Só despesas pendentes até 7 dias à frente (inclui atrasadas).
+    const ate = new Date(Date.parse(hoje) + 7 * 86_400_000).toISOString().slice(0, 10);
+    const { data: lancamentos, error } = await admin
+      .from('lancamentos')
+      .select('tipo, descricao, valor_centavos, vencimento, pago_em, parcela_num, parcela_total')
+      .eq('user_id', userId)
+      .eq('excluido', false)
+      .eq('tipo', 'despesa')
+      .is('pago_em', null)
+      .lte('vencimento', ate);
+    if (error) {
+      falhas.push(error.message);
+      continue;
+    }
+
+    const resumo = montarResumo((lancamentos ?? []) as LancamentoResumo[], hoje);
     if (ehCron && resumo.vazio) continue;
 
-    const { data: u } = await admin.auth.admin.getUserById(b.user_id);
+    const { data: u } = await admin.auth.admin.getUserById(userId);
     const email = u.user?.email;
     if (!email) continue;
 
@@ -61,6 +72,6 @@ Deno.serve(async (req) => {
     else falhas.push(`${r.status}: ${await r.text()}`);
   }
 
-  if (!ehCron && falhas.length) return resposta(502, { erro: `Resend recusou o envio (${falhas[0]})` });
+  if (!ehCron && falhas.length) return resposta(502, { erro: `Falha no envio (${falhas[0]})` });
   return resposta(200, { enviados, falhas: falhas.length });
 });

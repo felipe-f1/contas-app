@@ -51,7 +51,7 @@ export default function Fixas() {
           const cat = categoria(item.categoria);
           return (
             <Pressable
-              onPress={() => router.push(`/conta/${item.id}`)}
+              onPress={() => router.push({ pathname: '/conta/[id]', params: { id: item.id } })}
               style={({ pressed }) => [s.item, !item.ativa && { opacity: 0.5 }, pressed && { opacity: 0.7 }]}
               accessibilityRole="button"
             >

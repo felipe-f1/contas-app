@@ -1,24 +1,52 @@
 import { Stack } from 'expo-router';
-import { SQLiteProvider, useSQLiteContext } from 'expo-sqlite';
+import { SQLiteProvider, type SQLiteDatabase } from 'expo-sqlite';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
-import { AppState } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
-import { NOME_BANCO, gerarMesesPendentes, migrar } from '../lib/db';
-import { configurarNotificacoes, pedirPermissaoNotificacoes, sincronizar } from '../lib/sincronizar';
+import { TelaBloqueio } from '../components/TelaBloqueio';
+import { NOME_BANCO, destrancarBanco, migrarBancoSemCriptografia } from '../lib/cofre';
+import { gerarMesesPendentes, migrar } from '../lib/db';
+import { SessaoProvider, useSessao } from '../lib/sessao';
 import { cores } from '../lib/tema';
 
+// Fora do componente: o SQLiteProvider reabre o banco se esta função mudar.
+async function abrirBanco(db: SQLiteDatabase) {
+  await destrancarBanco(db); // precisa ser o primeiro comando (SQLCipher)
+  await migrar(db);
+  await gerarMesesPendentes(db);
+}
+
 export default function RootLayout() {
+  const [pronto, setPronto] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+
+  useEffect(() => {
+    migrarBancoSemCriptografia()
+      .then(() => setPronto(true))
+      .catch((e) => setErro(String(e)));
+  }, []);
+
+  if (erro) return <TelaErro mensagem={erro} />;
+  if (!pronto) return <Carregando />;
+
   return (
-    <SQLiteProvider
-      databaseName={NOME_BANCO}
-      onInit={async (db) => {
-        await migrar(db);
-        await gerarMesesPendentes(db);
-      }}
-    >
-      <Sincronizador />
-      <StatusBar style="dark" />
+    <SQLiteProvider databaseName={NOME_BANCO} onInit={abrirBanco} onError={(e) => setErro(String(e))}>
+      <SessaoProvider>
+        <StatusBar style="dark" />
+        <Navegacao />
+      </SessaoProvider>
+    </SQLiteProvider>
+  );
+}
+
+function Navegacao() {
+  const { carregando, usuario, pinDefinido, bloqueado } = useSessao();
+  if (carregando) return <Carregando />;
+
+  const logado = !!usuario;
+  return (
+    <>
       <Stack
         screenOptions={{
           headerStyle: { backgroundColor: cores.superficie },
@@ -27,29 +55,46 @@ export default function RootLayout() {
           contentStyle: { backgroundColor: cores.fundo },
         }}
       >
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="lancamento/[id]" options={{ presentation: 'modal', title: 'Lançamento' }} />
-        <Stack.Screen name="conta/[id]" options={{ presentation: 'modal', title: 'Conta fixa' }} />
+        {/* App: só com conta e PIN criado */}
+        <Stack.Protected guard={logado && pinDefinido}>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="lancamento/[id]" options={{ presentation: 'modal', title: 'Lançamento' }} />
+          <Stack.Screen name="conta/[id]" options={{ presentation: 'modal', title: 'Conta fixa' }} />
+        </Stack.Protected>
+
+        {/* Sem conta: entrar, cadastrar, recuperar senha */}
+        <Stack.Protected guard={!logado}>
+          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+        </Stack.Protected>
+
+        {/* Com conta: criar/alterar PIN e trocar senha */}
+        <Stack.Protected guard={logado}>
+          <Stack.Screen name="configurar-pin" options={{ title: 'PIN de acesso', headerBackVisible: pinDefinido }} />
+          <Stack.Screen name="trocar-senha" options={{ presentation: 'modal', title: 'Trocar senha' }} />
+        </Stack.Protected>
       </Stack>
-    </SQLiteProvider>
+      {logado && pinDefinido && bloqueado && <TelaBloqueio />}
+    </>
   );
 }
 
-/** Reagenda lembretes ao abrir o app e sempre que ele volta para o primeiro plano. */
-function Sincronizador() {
-  const db = useSQLiteContext();
-
-  useEffect(() => {
-    (async () => {
-      await configurarNotificacoes();
-      await pedirPermissaoNotificacoes();
-      await sincronizar(db);
-    })();
-    const sub = AppState.addEventListener('change', (estado) => {
-      if (estado === 'active') sincronizar(db);
-    });
-    return () => sub.remove();
-  }, [db]);
-
-  return null;
+function Carregando() {
+  return (
+    <View style={s.centro}>
+      <ActivityIndicator size="large" color={cores.primaria} />
+    </View>
+  );
 }
+
+function TelaErro({ mensagem }: { mensagem: string }) {
+  return (
+    <View style={[s.centro, { padding: 24, gap: 12 }]}>
+      <Text style={{ fontSize: 18, fontWeight: '700', color: cores.texto }}>Não foi possível abrir seus dados</Text>
+      <Text style={{ color: cores.textoSuave, textAlign: 'center' }}>{mensagem}</Text>
+    </View>
+  );
+}
+
+const s = StyleSheet.create({
+  centro: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: cores.fundo },
+});

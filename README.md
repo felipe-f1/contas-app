@@ -12,7 +12,8 @@ App de celular (Android e iOS) para lembrar das contas a vencer e controlar os g
 - **Parcelas e receitas**: compras parceladas (3/10), salário e outras entradas, com o saldo do mês.
 - **Gráfico**: receitas x despesas dos últimos 6 meses.
 - **Planilha**: exporta tudo em CSV, que abre no Excel ou no Google Planilhas.
-- **Backup na nuvem**: login por código no e-mail; o backup é automático a cada mudança.
+- **Conta e banco na nuvem**: login com e-mail e senha; os dados ficam no Postgres (Supabase) e sincronizam nos dois sentidos, funcionando também offline.
+- **Segurança**: banco do celular criptografado (AES-256), PIN e biometria, bloqueio automático, proteção contra prints e RLS no servidor. Veja [docs/SEGURANCA.md](docs/SEGURANCA.md).
 - **Resumo semanal por e-mail**: toda segunda, as contas atrasadas e as da semana.
 
 ## Instalar no celular (Android)
@@ -23,17 +24,17 @@ Configuração inicial (uma vez): em **Settings → Secrets and variables → Ac
 
 Para desenvolver com recarga instantânea: `npm install`, depois `npx expo start`, e abra pelo app **Expo Go**.
 
-Backup na nuvem e e-mail: siga **[docs/NUVEM.md](docs/NUVEM.md)**.
+Banco, login e e-mail: siga **[docs/NUVEM.md](docs/NUVEM.md)**.
 
 ## Arquitetura
 
 | Decisão | Por quê |
 |---|---|
 | Expo + React Native + TypeScript | Um código para Android e iOS, e dá para testar no celular sem loja |
-| SQLite local (`expo-sqlite`) | Funciona offline e os dados ficam no seu aparelho |
+| SQLite local criptografado (SQLCipher) | Funciona offline; a chave fica no Keystore do Android |
 | Notificações **locais** (`expo-notifications`) | O celular agenda o alerta sozinho, sem servidor |
 | Calendário do aparelho (`expo-calendar/legacy`) | Sincroniza com o Google Agenda pela conta Google do celular, sem login no app |
-| Supabase (opcional) | Backup como "foto" JSON por usuário com RLS; a Edge Function envia o e-mail via Resend |
+| Supabase (Postgres + Auth) | Login com senha; sincronização incremental em que o mais recente vence; RLS testado com PGlite no CI |
 | APK pelo GitHub Actions | Instalação sem loja e sem conta Expo; a chave fixa permite atualizar sem desinstalar |
 | Valores em centavos (inteiros) | `float` gera erro de arredondamento com dinheiro |
 | Datas como texto `YYYY-MM-DD` | Vencimento dia 10 é dia 10 em qualquer fuso |
@@ -47,12 +48,16 @@ src/
   components/           UI reutilizável
   lib/
     db.ts               schema, migrações e consultas
-    sincronizar.ts      notificações + Google Agenda + backup automático
-    nuvem.ts            login e backup no Supabase
+    sincronizar.ts      ciclo: servidor → gerar mês → servidor → lembretes
+    sync.ts             envio/recebimento incremental com o Postgres
+    regrasSync.ts       conflitos, senha, PIN (puro, testado)
+    nuvem.ts            cliente Supabase e login
+    cofre.ts            chave do banco, migração para SQLCipher, PIN
+    sessao.tsx          estado de login, bloqueio automático
     planejarLembretes.ts regra dos lembretes (pura, testada)
     relatorios.ts       resumo do mês, gráfico e CSV (puro, testado)
     datas.ts, dinheiro.ts
-supabase/               SQL da tabela e Edge Function do e-mail semanal
+supabase/               migrações SQL (tabelas + RLS) e Edge Function do e-mail
 plugins/                config plugin de assinatura do APK
 tests/                  testes das regras de negócio
 ```
@@ -62,7 +67,8 @@ tests/                  testes das regras de negócio
 ## Comandos
 
 ```bash
-npm test           # testes das regras (datas, dinheiro, lembretes)
+npm test           # testes das regras (datas, dinheiro, lembretes, sync, segurança)
+npm run test:banco # migrações + RLS num Postgres embutido (PGlite)
 npm run typecheck  # TypeScript
 npm run lint       # ESLint
 ```

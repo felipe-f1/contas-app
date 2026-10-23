@@ -78,7 +78,10 @@ test('lembretes respeitam o limite', () => {
   assert.equal(planejarLembretes(pendentes, { diasAntes: 2, hora: 9 }, new Date(2026, 9, 23)).length, 60);
 });
 
-const base = { conta_fixa_id: null, parcela_grupo: null, parcela_num: null, parcela_total: null, mes: '2026-10' };
+const base = {
+  conta_fixa_id: null, parcela_grupo: null, parcela_num: null, parcela_total: null, mes: '2026-10',
+  atualizado_em: '2026-10-01T00:00:00.000Z', excluido: 0, sujo: 0,
+};
 
 test('resumo do mês separa receitas e despesas', () => {
   const r = resumir([
@@ -113,8 +116,8 @@ test('série do gráfico preenche meses vazios e atravessa o ano', () => {
 
 test('CSV no formato do Excel brasileiro', () => {
   const csv = gerarCSV([
-    { ...base, id: 1, tipo: 'despesa', descricao: 'Luz; conta "nova"', categoria: 'Luz, água e gás', valor_centavos: 15075, vencimento: '2026-10-05', pago_em: '2026-10-04' },
-    { ...base, id: 2, tipo: 'receita', descricao: 'Salário', categoria: 'Salário', valor_centavos: 500000, vencimento: '2026-10-05', pago_em: null, parcela_num: 2, parcela_total: 10 },
+    { ...base, id: 'a', tipo: 'despesa', descricao: 'Luz; conta "nova"', categoria: 'Luz, água e gás', valor_centavos: 15075, vencimento: '2026-10-05', pago_em: '2026-10-04' },
+    { ...base, id: 'b', tipo: 'receita', descricao: 'Salário', categoria: 'Salário', valor_centavos: 500000, vencimento: '2026-10-05', pago_em: null, parcela_num: 2, parcela_total: 10 },
   ]);
   const linhas = csv.split('\r\n');
   assert.ok(csv.startsWith('﻿Mês;Vencimento;'));

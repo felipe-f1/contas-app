@@ -4,10 +4,10 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
 import { Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 
-import { SecaoNuvem } from '../../components/SecaoNuvem';
+import { SecaoConta } from '../../components/SecaoConta';
 import { Contador } from '../../components/campos';
 import { Botao, Cartao, TituloSecao, estilos } from '../../components/ui';
-import { type Config, lerConfig, salvarConfig } from '../../lib/db';
+import { type Config, type Preferencias, lerConfig, salvarConfig, salvarPreferencias } from '../../lib/db';
 import { exportarPlanilha } from '../../lib/exportar';
 import {
   type Calendario,
@@ -36,6 +36,13 @@ export default function Ajustes() {
   async function atualizar(parcial: Partial<Config>) {
     setConfig((c) => (c ? { ...c, ...parcial } : c));
     await salvarConfig(db, parcial);
+    sincronizar(db);
+  }
+
+  /** Preferências da conta: valem em todos os aparelhos. */
+  async function atualizarPreferencias(parcial: Partial<Preferencias>) {
+    setConfig((c) => (c ? { ...c, ...parcial } : c));
+    await salvarPreferencias(db, parcial);
     sincronizar(db);
   }
 
@@ -89,7 +96,7 @@ export default function Ajustes() {
             valor={config.diasAntes}
             min={0}
             max={10}
-            onChange={(diasAntes) => atualizar({ diasAntes })}
+            onChange={(diasAntes) => atualizarPreferencias({ diasAntes })}
             formatar={(n) => (n === 0 ? 'não' : n === 1 ? '1 dia' : `${n} dias`)}
           />
         </Linha>
@@ -98,7 +105,7 @@ export default function Ajustes() {
             valor={config.hora}
             min={5}
             max={22}
-            onChange={(hora) => atualizar({ hora })}
+            onChange={(hora) => atualizarPreferencias({ hora })}
             formatar={(n) => `${String(n).padStart(2, '0')}:00`}
           />
         </Linha>
@@ -148,7 +155,7 @@ export default function Ajustes() {
         />
       </Cartao>
 
-      <SecaoNuvem />
+      <SecaoConta />
     </ScrollView>
   );
 }

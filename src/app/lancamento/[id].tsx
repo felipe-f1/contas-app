@@ -22,7 +22,7 @@ import { categoriasDo, cores } from '../../lib/tema';
 export default function FormLancamento() {
   const db = useSQLiteContext();
   const params = useLocalSearchParams<{ id: string; mes?: Mes }>();
-  const id = params.id === 'novo' ? null : Number(params.id);
+  const id = params.id === 'novo' ? null : params.id;
 
   const [original, setOriginal] = useState<Lancamento | null>(null);
   const [tipo, setTipo] = useState<Tipo>('despesa');

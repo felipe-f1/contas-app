@@ -7,13 +7,15 @@ import { hojeISO, paraDate, somarDias } from './datas';
 import { type Config, type Lancamento, gerarMesesPendentes, lerConfig, listarPendentes } from './db';
 import { formatarBRL } from './dinheiro';
 import { hashTexto } from './hash';
-import { enviarBackup } from './nuvem';
+import { nuvem } from './nuvem';
 import { planejarLembretes } from './planejarLembretes';
+import { enviarTudo, receberTudo } from './sync';
 
 const CANAL_ANDROID = 'vencimentos';
 const JANELA_FUTURO_DIAS = 62;
 const JANELA_PASSADO_DIAS = 60;
-const MARCA = /\[contas-app:\d+:[a-z0-9]+\]/;
+// O id pode conter ":" (lançamentos gerados), por isso o hash é o último trecho.
+const MARCA = /\[contas-app:[^\]\s]+:[a-z0-9]+\]/;
 
 // ---------------------------------------------------------------------------
 // Notificações
@@ -131,7 +133,14 @@ let fila: Promise<void> = Promise.resolve();
 export function sincronizar(db: SQLiteDatabase): Promise<void> {
   fila = fila
     .then(async () => {
+      // 1. Traz do servidor o que mudou em outros aparelhos (antes de gerar o mês,
+      //    para não recriar um lançamento que foi excluído em outro lugar).
+      const online = await sessaoAtiva();
+      if (online) await receberTudo(db, nuvem()).catch((e) => console.warn('Sem receber do servidor', e));
       await gerarMesesPendentes(db);
+      // 2. Envia o que mudou aqui. Sem internet, fica marcado e vai na próxima vez.
+      if (online) await enviarTudo(db, nuvem()).catch((e) => console.warn('Sem enviar ao servidor', e));
+
       const config = await lerConfig(db);
       const hoje = hojeISO();
       const pendentes = await listarPendentes(db, somarDias(hoje, JANELA_FUTURO_DIAS));
@@ -140,8 +149,23 @@ export function sincronizar(db: SQLiteDatabase): Promise<void> {
         const limite = somarDias(hoje, -JANELA_PASSADO_DIAS);
         await reconciliarAgenda(config.agendaId, pendentes.filter((l) => l.vencimento >= limite), config);
       }
-      if (config.backupAtivo) await enviarBackup(db).catch((e) => console.warn('Backup adiado', e));
     })
     .catch((e) => console.warn('Falha ao sincronizar lembretes', e));
   return fila;
+}
+
+async function sessaoAtiva() {
+  try {
+    return !!(await nuvem().auth.getSession()).data.session;
+  } catch {
+    return false;
+  }
+}
+
+/** Ao sair da conta: nenhuma notificação ou evento da agenda com dados do usuário fica para trás. */
+export async function limparLembretes(db: SQLiteDatabase) {
+  await fila;
+  await Notifications.cancelAllScheduledNotificationsAsync().catch(() => {});
+  const { agendaAtiva, agendaId } = await lerConfig(db);
+  if (agendaAtiva && agendaId) await limparAgenda(agendaId).catch(() => {});
 }
