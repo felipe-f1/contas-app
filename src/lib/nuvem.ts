@@ -27,6 +27,7 @@ export function iniciarNuvem(db: SQLiteDatabase): SupabaseClient {
       persistSession: true,
       detectSessionInUrl: false,
     },
+    global: { fetch: fetchTolerante },
   });
   // Recomendação do Supabase para apps: só renovar o token com o app aberto.
   const c = cliente;
@@ -35,6 +36,21 @@ export function iniciarNuvem(db: SQLiteDatabase): SupabaseClient {
     else c.auth.stopAutoRefresh();
   });
   return cliente;
+}
+
+/**
+ * Servidor fora do ar não é "login inválido". Projeto pausado responde com
+ * códigos (ex.: 540) que a biblioteca de login trataria como sessão inválida e
+ * apagaria. Para renovação de login, qualquer 5xx vira erro de rede: a sessão é
+ * mantida e a renovação é tentada de novo depois.
+ */
+async function fetchTolerante(entrada: RequestInfo | URL, init?: RequestInit) {
+  const resposta = await fetch(entrada, init);
+  const url = typeof entrada === 'string' ? entrada : entrada instanceof URL ? entrada.href : entrada.url;
+  if (resposta.status >= 500 && url.includes('/auth/v1/')) {
+    throw new TypeError(`Servidor indisponível (HTTP ${resposta.status})`);
+  }
+  return resposta;
 }
 
 export function nuvem(): SupabaseClient {
@@ -89,12 +105,11 @@ export async function trocarSenha(email: string, atual: string, nova: string) {
 }
 
 /** Se outra conta entrar neste aparelho, os dados da anterior são apagados antes. */
-export async function prepararUsuario(db: SQLiteDatabase, usuarioId: string) {
+export async function prepararUsuario(db: SQLiteDatabase, usuarioId: string, email: string) {
   const { usuarioId: anterior } = await lerConfig(db);
-  if (anterior === usuarioId) return;
-  if (anterior) await limparDadosDoUsuario(db);
+  if (anterior && anterior !== usuarioId) await limparDadosDoUsuario(db);
   // Dados criados antes de existir login (v1.0.x) ficam e vão para a conta nova.
-  await salvarConfig(db, { usuarioId });
+  await salvarConfig(db, { usuarioId, usuarioEmail: email });
 }
 
 /** Exclui a conta e todos os dados no servidor. Exige a senha (reautenticação). */

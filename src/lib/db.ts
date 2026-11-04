@@ -51,7 +51,9 @@ export type Config = {
   agendaId: string | null;
   biometria: boolean;
   bloquearCapturas: boolean;
+  /** Conta registrada neste aparelho: é o que libera o app, mesmo offline. */
   usuarioId: string | null;
+  usuarioEmail: string | null;
   ultimaSincronizacao: string | null;
   tentativasPin: number;
 };
@@ -67,6 +69,7 @@ const CONFIG_PADRAO: Config = {
   biometria: true,
   bloquearCapturas: true,
   usuarioId: null,
+  usuarioEmail: null,
   ultimaSincronizacao: null,
   tentativasPin: 0,
 };
@@ -279,7 +282,7 @@ export function limparDadosDoUsuario(db: SQLiteDatabase) {
       await db.execAsync('DELETE FROM lancamentos; DELETE FROM contas_fixas; DELETE FROM meses_gerados;');
       await db.runAsync(
         `DELETE FROM config WHERE chave IN ('diasAntes', 'hora', 'emailSemanal', 'prefsAtualizadoEm', 'prefsSujo',
-          'usuarioId', 'ultimaSincronizacao', 'tentativasPin') OR chave LIKE 'cursor:%'`,
+          'usuarioId', 'usuarioEmail', 'ultimaSincronizacao', 'tentativasPin') OR chave LIKE 'cursor:%'`,
       );
     }),
   );

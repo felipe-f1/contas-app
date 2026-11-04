@@ -19,6 +19,9 @@ type Sessao = {
   usuario: Usuario | null;
   pinDefinido: boolean;
   bloqueado: boolean;
+  /** A sessão do servidor caiu (ex.: senha trocada em outro aparelho): o app
+   * continua funcionando, mas é preciso entrar de novo para sincronizar. */
+  precisaReconectar: boolean;
   desbloquear: () => void;
   pinCriado: () => void;
   /** Envia o que falta e apaga do aparelho tudo que é do usuário. */
@@ -41,7 +44,9 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
   const [pinDefinido, setPinDefinido] = useState(false);
   const [bloqueado, setBloqueado] = useState(false);
   const [emSegundoPlano, setEmSegundoPlano] = useState(false);
+  const [precisaReconectar, setPrecisaReconectar] = useState(false);
   const saiuEm = useRef<number | null>(null);
+  const saindo = useRef(false);
 
   const aplicarProtecaoDeTela = useCallback(async (ativa: boolean) => {
     // FLAG_SECURE no Android: impede prints e esconde o conteúdo na tela de apps recentes.
@@ -49,13 +54,14 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
     else await ScreenCapture.allowScreenCaptureAsync('contas');
   }, []);
 
-  // Sessão salva + mudanças de login.
+  // Entrada no app: depende só do aparelho (conta registrada + PIN), nunca do
+  // servidor. Assim o app abre sem internet e com o servidor fora do ar. A
+  // sessão do Supabase é usada apenas para sincronizar.
   useEffect(() => {
     const supa = iniciarNuvem(db);
     let ativo = true;
 
-    async function aoEntrar(id: string, email: string) {
-      await prepararUsuario(db, id);
+    async function liberar(id: string, email: string) {
       const pin = await temPin();
       if (!ativo) return;
       setPinDefinido(pin);
@@ -65,23 +71,43 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
       sincronizar(db);
     }
 
+    async function aoEntrar(id: string, email: string) {
+      await prepararUsuario(db, id, email);
+      setPrecisaReconectar(false);
+      await liberar(id, email);
+    }
+
     (async () => {
-      const { data } = await supa.auth.getSession();
+      const config = await lerConfig(db);
+      if (config.usuarioId) {
+        // Abertura a frio: sempre começa bloqueado (pede PIN/digital).
+        setBloqueado(await temPin());
+        await liberar(config.usuarioId, config.usuarioEmail ?? '');
+      }
+      await aplicarProtecaoDeTela(config.bloquearCapturas);
+      if (ativo) setCarregando(false);
+
+      // Em segundo plano: confere a sessão do servidor, sem bloquear nada.
+      const { data, error } = await supa.auth.getSession();
+      if (!ativo) return;
       const u = data.session?.user;
       if (u) {
-        // Abertura a frio com sessão salva: sempre começa bloqueado.
-        setBloqueado(await temPin());
-        await aoEntrar(u.id, u.email ?? '');
+        // Instalações antigas não tinham a conta registrada no aparelho.
+        if (!config.usuarioId || !config.usuarioEmail) await aoEntrar(u.id, u.email ?? '');
+      } else if (config.usuarioId && !error) {
+        // Sem erro e sem sessão: o servidor encerrou a sessão de fato.
+        setPrecisaReconectar(true);
       }
-      await aplicarProtecaoDeTela((await lerConfig(db)).bloquearCapturas);
-      if (ativo) setCarregando(false);
+      // Com erro (sem internet / servidor fora): segue offline, sem alarde.
     })();
 
     // O Supabase pede para não chamar a API dentro deste callback; adiamos o trabalho.
     const { data: inscricao } = supa.auth.onAuthStateChange((evento, sessao) => {
+      const pedidaPeloUsuario = saindo.current; // lido agora, não dentro do setTimeout
       setTimeout(() => {
         if (evento === 'SIGNED_IN' && sessao?.user) aoEntrar(sessao.user.id, sessao.user.email ?? '');
-        if (evento === 'SIGNED_OUT') setUsuario(null);
+        // Saída que não foi pedida pelo usuário: mantém o app aberto e pede para reconectar.
+        if (evento === 'SIGNED_OUT' && !pedidaPeloUsuario) setPrecisaReconectar(true);
       }, 0);
     });
     return () => {
@@ -108,13 +134,19 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
     async ({ semEnviar = false } = {}) => {
       const supa = iniciarNuvem(db);
       if (!semEnviar) await enviarTudo(db, supa); // falha (sem internet) → quem chamou decide
-      await limparLembretes(db);
-      await supa.auth.signOut().catch(() => {});
-      await limparDadosDoUsuario(db);
-      await apagarPin();
-      setPinDefinido(false);
-      setBloqueado(false);
-      setUsuario(null);
+      saindo.current = true;
+      try {
+        await limparLembretes(db);
+        await supa.auth.signOut().catch(() => {});
+        await limparDadosDoUsuario(db);
+        await apagarPin();
+        setPinDefinido(false);
+        setBloqueado(false);
+        setPrecisaReconectar(false);
+        setUsuario(null);
+      } finally {
+        saindo.current = false;
+      }
     },
     [db],
   );
@@ -124,6 +156,7 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
     usuario,
     pinDefinido,
     bloqueado,
+    precisaReconectar,
     desbloquear: () => setBloqueado(false),
     pinCriado: () => setPinDefinido(true),
     sair,

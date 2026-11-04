@@ -11,6 +11,7 @@ import { useSessao } from '../lib/sessao';
 import { sincronizar } from '../lib/sincronizar';
 import { pendentesDeEnvio } from '../lib/sync';
 import { cores } from '../lib/tema';
+import { AvisoReconectar } from './AvisoReconectar';
 import { Botao, Cartao, TituloSecao } from './ui';
 
 function formatarMomento(iso: string) {
@@ -99,6 +100,7 @@ export function SecaoConta() {
     <>
       <TituloSecao>Conta</TituloSecao>
       <Cartao style={{ gap: 12 }}>
+        <AvisoReconectar />
         <View style={s.linha}>
           <Ionicons name={pendentes ? 'cloud-upload-outline' : 'cloud-done-outline'} size={26} color={pendentes ? cores.alerta : cores.primaria} />
           <View style={{ flex: 1 }}>

@@ -3,6 +3,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
 import { SectionList, StyleSheet, Text, View } from 'react-native';
 
+import { AvisoReconectar } from '../../components/AvisoReconectar';
 import { ItemLancamento } from '../../components/ItemLancamento';
 import { BotaoFlutuante, Cartao, TituloSecao, Vazio, estilos } from '../../components/ui';
 import { hojeISO, mesAtual, nomeMes, somarDias } from '../../lib/datas';
@@ -50,25 +51,28 @@ export default function APagar() {
         contentContainerStyle={estilos.conteudo}
         stickySectionHeadersEnabled={false}
         ListHeaderComponent={
-          <Cartao style={s.resumo}>
-            <Text style={s.resumoRotulo}>Falta pagar em {nomeMes(mesAtual()).toLowerCase()}</Text>
-            <Text style={s.resumoValor}>{formatarBRL(resumo.despesas - resumo.despesasPagas)}</Text>
-            {resumo.qtdDespesas > 0 && (
-              <>
-                <View style={s.barra}>
-                  <View style={[s.barraCheia, { width: `${(resumo.qtdDespesasPagas / resumo.qtdDespesas) * 100}%` }]} />
-                </View>
+          <View style={{ gap: 12 }}>
+            <AvisoReconectar />
+            <Cartao style={s.resumo}>
+              <Text style={s.resumoRotulo}>Falta pagar em {nomeMes(mesAtual()).toLowerCase()}</Text>
+              <Text style={s.resumoValor}>{formatarBRL(resumo.despesas - resumo.despesasPagas)}</Text>
+              {resumo.qtdDespesas > 0 && (
+                <>
+                  <View style={s.barra}>
+                    <View style={[s.barraCheia, { width: `${(resumo.qtdDespesasPagas / resumo.qtdDespesas) * 100}%` }]} />
+                  </View>
+                  <Text style={s.resumoRodape}>
+                    {resumo.qtdDespesasPagas} de {resumo.qtdDespesas} contas pagas · {formatarBRL(resumo.despesasPagas)} já pago
+                  </Text>
+                </>
+              )}
+              {resumo.receitas > 0 && (
                 <Text style={s.resumoRodape}>
-                  {resumo.qtdDespesasPagas} de {resumo.qtdDespesas} contas pagas · {formatarBRL(resumo.despesasPagas)} já pago
+                  Saldo previsto do mês: <Text style={{ fontWeight: '800', color: '#fff' }}>{formatarBRL(resumo.saldo)}</Text>
                 </Text>
-              </>
-            )}
-            {resumo.receitas > 0 && (
-              <Text style={s.resumoRodape}>
-                Saldo previsto do mês: <Text style={{ fontWeight: '800', color: '#fff' }}>{formatarBRL(resumo.saldo)}</Text>
-              </Text>
-            )}
-          </Cartao>
+              )}
+            </Cartao>
+          </View>
         }
         renderSectionHeader={({ section }) => (
           <TituloSecao>
