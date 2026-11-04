@@ -3,6 +3,12 @@ name: APK Android
 on:
   push:
     branches: [main]
+    # Mudanças que não alteram o app não geram APK novo.
+    paths-ignore:
+      - 'docs/**'
+      - 'loja/**'
+      - '**/*.md'
+      - '.github/workflows/manter-supabase-ativo.yml'
   workflow_dispatch:
 
 permissions:

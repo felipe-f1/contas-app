@@ -1,0 +1,40 @@
+name: Manter Supabase ativo
+
+# O plano gratuito do Supabase pausa o projeto depois de 7 dias sem uso. Este
+# workflow faz uma consulta real no banco todo dia para isso não acontecer.
+# Se o projeto estiver pausado (ou fora do ar), o job falha e o GitHub envia
+# um e-mail de aviso ao dono do repositório.
+
+on:
+  schedule:
+    - cron: '23 11 * * *' # todo dia às 08:23 de Brasília
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      # URL e chave publishable são públicas (já vão dentro do app).
+      SUPABASE_URL: https://hkvkqtcdvsappbgmkibz.supabase.co
+      SUPABASE_KEY: sb_publishable_3le6rz3X9llhq56RQHZnaw_mN893DFS
+    steps:
+      - name: Consultar o banco
+        run: |
+          for tentativa in 1 2 3; do
+            resposta=$(curl -sS --max-time 30 -w '\n%{http_code}' -X POST \
+              "$SUPABASE_URL/rest/v1/rpc/manter_ativo" \
+              -H "apikey: $SUPABASE_KEY" -H "Content-Type: application/json" -d '{}') || true
+            codigo=$(echo "$resposta" | tail -n1)
+            if [ "$codigo" = "200" ]; then
+              echo "Supabase ativo. Hora do servidor: $(echo "$resposta" | head -n1)"
+              exit 0
+            fi
+            echo "Tentativa $tentativa: HTTP $codigo"
+            sleep 20
+          done
+          echo "::error::O Supabase não respondeu. Se estiver pausado, abra o painel e clique em 'Restore project'."
+          exit 1

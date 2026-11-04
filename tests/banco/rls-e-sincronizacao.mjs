@@ -15,7 +15,7 @@ await db.exec(`
   grant execute on function auth.uid() to anon, authenticated;
   insert into auth.users values ('00000000-0000-0000-0000-00000000000a','a@x.com'), ('00000000-0000-0000-0000-00000000000b','b@x.com');
 `);
-for (const f of ['0001_backups.sql', '0002_sincronizacao.sql', '0003_excluir_conta.sql']) await db.exec(readFileSync(`${raiz}/supabase/migrations/${f}`, 'utf8'));
+for (const f of ['0001_backups.sql', '0002_sincronizacao.sql', '0003_excluir_conta.sql', '0004_manter_ativo.sql']) await db.exec(readFileSync(`${raiz}/supabase/migrations/${f}`, 'utf8'));
 // rodar de novo: migração precisa ser idempotente
 await db.exec(readFileSync(`${raiz}/supabase/migrations/0002_sincronizacao.sql`, 'utf8'));
 console.log('✓ migrações executadas (e reexecutadas sem erro)');
@@ -87,4 +87,9 @@ await como(A, `select public.excluir_minha_conta()`);
 assert.equal(await contar(A), 0);
 assert.ok((await contar(B)) > 0, 'dados de B não podem ser afetados');
 console.log('✓ excluir conta: apaga só o próprio usuário e todos os seus dados; anon não executa');
+// 8. ping de manutenção: anon consegue chamar, e ele não expõe dados
+const ping = await como(null, `select public.manter_ativo() as agora`);
+assert.ok(ping.rows[0].agora instanceof Date);
+await assert.rejects(como(null, `select * from public.lancamentos`), /permission denied/);
+console.log('✓ ping manter_ativo: acessível sem login e sem acesso a dados');
 console.log('TODOS OS TESTES DO BANCO PASSARAM');

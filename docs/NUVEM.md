@@ -10,7 +10,15 @@ No Supabase, abra **SQL Editor → New query**, cole **todo** o conteúdo de [`s
 
 O script cria as tabelas `contas_fixas`, `lancamentos`, `meses_gerados` e `preferencias`, com as regras de segurança (RLS). Pode rodar de novo sem problema.
 
-Depois, numa nova query, rode também [`supabase/migrations/0003_excluir_conta.sql`](../supabase/migrations/0003_excluir_conta.sql), que permite ao usuário excluir a própria conta (exigência da Play Store).
+Depois, numa nova query, rode também [`supabase/migrations/0003_excluir_conta.sql`](../supabase/migrations/0003_excluir_conta.sql), que permite ao usuário excluir a própria conta (exigência da Play Store), e [`supabase/migrations/0004_manter_ativo.sql`](../supabase/migrations/0004_manter_ativo.sql) (veja "Manter o projeto ativo" abaixo).
+
+## Manter o projeto ativo
+
+O plano **gratuito** do Supabase **pausa o projeto após 7 dias sem uso**. Pausado, o app continua funcionando offline no celular, mas ninguém consegue entrar, criar conta ou sincronizar.
+
+- **Gratuito:** o workflow [`manter-supabase-ativo.yml`](../.github/workflows/manter-supabase-ativo.yml) consulta o banco todo dia (função `manter_ativo`, que não lê dados). Se o Supabase não responder, o job falha e o GitHub manda um e-mail de aviso. Observação: o GitHub desativa agendamentos de repositórios sem nenhum commit há 60 dias; se isso acontecer, ele avisa por e-mail e basta reativar em Actions.
+- **Garantido:** o plano **Pro** (US$ 25/mês) nunca pausa e inclui backups diários. Recomendado quando houver usuários.
+- **Se pausou:** abra o projeto no painel e clique em **Restore project**. Nenhum dado é perdido (projetos pausados podem ser restaurados por até 90 dias).
 
 ## 2. Login com e-mail e senha
 
@@ -95,4 +103,5 @@ Em **Integrations → Cron → Create job**:
 | "Error sending confirmation email" ao criar conta | O SMTP falhou (veja o motivo em Logs → **Auth**, não em API Gateway). Desligue "Confirm email" ou corrija o SMTP |
 | "Email signups are disabled" | "Enable Email provider" ou "Allow new users to sign up" foi desligado por engano |
 | "Muitos e-mails enviados" | Limite do e-mail padrão do Supabase: espere 1 hora ou configure SMTP |
+| Ninguém consegue entrar, mas o app abre | Projeto pausado por inatividade: "Restore project" no painel (veja "Manter o projeto ativo") |
 | Ajustes mostra "alterações aguardando internet" | Sem conexão ou tabelas ausentes; toque em "Sincronizar agora" para ver o erro |
