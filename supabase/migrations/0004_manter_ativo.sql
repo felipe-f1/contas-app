@@ -15,3 +15,6 @@ $$;
 
 revoke all on function public.manter_ativo() from public;
 grant execute on function public.manter_ativo() to anon, authenticated;
+
+-- Faz a API (PostgREST) enxergar a função nova imediatamente.
+notify pgrst, 'reload schema';

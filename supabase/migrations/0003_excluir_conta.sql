@@ -22,3 +22,6 @@ $$;
 
 revoke all on function public.excluir_minha_conta() from public, anon;
 grant execute on function public.excluir_minha_conta() to authenticated;
+
+-- Faz a API (PostgREST) enxergar a função nova imediatamente.
+notify pgrst, 'reload schema';
