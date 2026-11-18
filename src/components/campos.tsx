@@ -3,7 +3,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { type DataISO, deDate, paraDate } from '../lib/datas';
+import { type DataISO, type Mes, deDate, nomeMes, paraDate, somarMeses } from '../lib/datas';
 import { centavosDeDigitos, formatarBRL } from '../lib/dinheiro';
 import type { Tipo } from '../lib/db';
 import { categoriasDo, cores } from '../lib/tema';
@@ -22,10 +22,43 @@ export function CampoValor({ valor, onChange }: { valor: number; onChange: (cent
   );
 }
 
+/** ‹ Março de 2027 › — escolhe um mês, sem permitir antes de `minimo`. */
+export function SeletorMes({ valor, onChange, minimo }: { valor: Mes; onChange: (m: Mes) => void; minimo?: Mes }) {
+  const podeVoltar = !minimo || somarMeses(valor, -1) >= minimo;
+  return (
+    <View style={[estilos.input, s.seletorMes]}>
+      <Pressable
+        onPress={() => podeVoltar && onChange(somarMeses(valor, -1))}
+        hitSlop={10}
+        accessibilityRole="button"
+        accessibilityLabel="Mês anterior"
+        style={!podeVoltar && { opacity: 0.3 }}
+      >
+        <Ionicons name="chevron-back" size={22} color={cores.primaria} />
+      </Pressable>
+      <Text style={s.dataTexto}>{nomeMes(valor)}</Text>
+      <Pressable onPress={() => onChange(somarMeses(valor, 1))} hitSlop={10} accessibilityRole="button" accessibilityLabel="Próximo mês">
+        <Ionicons name="chevron-forward" size={22} color={cores.primaria} />
+      </Pressable>
+    </View>
+  );
+}
+
 const DIAS_SEMANA = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 
-export function CampoData({ valor, onChange }: { valor: DataISO; onChange: (d: DataISO) => void }) {
-  const [aberto, setAberto] = useState(false);
+export function CampoData({
+  valor,
+  onChange,
+  maximo,
+  abrirAoMontar = false,
+}: {
+  valor: DataISO;
+  onChange: (d: DataISO) => void;
+  /** Data mais recente permitida (ex.: pagamento não pode ser no futuro). */
+  maximo?: DataISO;
+  abrirAoMontar?: boolean;
+}) {
+  const [aberto, setAberto] = useState(abrirAoMontar);
   const data = paraDate(valor);
   const [a, m, d] = valor.split('-');
 
@@ -42,6 +75,7 @@ export function CampoData({ valor, onChange }: { valor: DataISO; onChange: (d: D
           value={data}
           mode="date"
           display={Platform.OS === 'ios' ? 'inline' : 'default'}
+          maximumDate={maximo ? paraDate(maximo) : undefined}
           onValueChange={(_, nova) => {
             if (Platform.OS === 'android') setAberto(false);
             onChange(deDate(nova));
@@ -139,6 +173,7 @@ function BotaoRedondo({ icone, onPress, desabilitado }: { icone: 'add' | 'remove
 const s = StyleSheet.create({
   valor: { fontSize: 24, fontWeight: '700' },
   linha: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  seletorMes: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   dataTexto: { fontSize: 16, color: cores.texto },
   chips: { gap: 8, paddingVertical: 2 },
   segmentos: {

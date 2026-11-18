@@ -6,6 +6,7 @@ import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { GraficoMeses } from '../../components/GraficoMeses';
 import { ItemLancamento } from '../../components/ItemLancamento';
+import { marcarPagoComData } from '../../components/marcarPago';
 import { BotaoFlutuante, Cartao, TituloSecao, Vazio, estilos } from '../../components/ui';
 import { hojeISO, mesAtual, nomeMes, somarMeses } from '../../lib/datas';
 import { type Lancamento, alternarPago, gerarMes, listarLancamentosDoMes, totaisPorMes } from '../../lib/db';
@@ -38,10 +39,12 @@ export default function Mes() {
     }, [carregar]),
   );
 
-  async function onAlternarPago(l: Lancamento) {
-    await alternarPago(db, l);
-    await carregar();
-    sincronizar(db);
+  function onAlternarPago(l: Lancamento) {
+    marcarPagoComData(l, hojeISO(), async (pagoEm) => {
+      await alternarPago(db, l, pagoEm);
+      await carregar();
+      sincronizar(db);
+    });
   }
 
   const r = resumir(itens);

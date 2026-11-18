@@ -20,6 +20,8 @@ export type ContaFixa = Sincronizavel & {
   dia_vencimento: number;
   categoria: string;
   ativa: number;
+  /** Último mês em que a conta vale (ex.: financiamento até 2027-03). null = sem fim. */
+  termina_em: Mes | null;
 };
 
 export type Lancamento = Sincronizavel & {
@@ -209,6 +211,12 @@ export async function migrar(db: SQLiteDatabase) {
     versao = 3;
   }
 
+  if (versao < 4) {
+    // Contas fixas com prazo: a conta deixa de gerar lançamentos depois deste mês.
+    await db.execAsync(`ALTER TABLE contas_fixas ADD COLUMN termina_em TEXT;`);
+    versao = 4;
+  }
+
   await db.execAsync(`PRAGMA user_version = ${versao}`);
 }
 
@@ -306,7 +314,10 @@ export function gerarMes(db: SQLiteDatabase, mes: Mes, agora = new Date()) {
     if (jaGerado) return;
 
     await db.withTransactionAsync(async () => {
-      const contas = await db.getAllAsync<ContaFixa>('SELECT * FROM contas_fixas WHERE ativa = 1 AND excluido = 0');
+      const contas = await db.getAllAsync<ContaFixa>(
+        'SELECT * FROM contas_fixas WHERE ativa = 1 AND excluido = 0 AND (termina_em IS NULL OR termina_em >= ?)',
+        mes,
+      );
       for (const c of contas) await inserirLancamentoDaConta(db, c, mes);
       await db.runAsync('INSERT OR IGNORE INTO meses_gerados (id, atualizado_em) VALUES (?, ?)', mes, agoraISO());
     });
@@ -343,7 +354,7 @@ export function buscarContaFixa(db: SQLiteDatabase, id: string) {
   return db.getFirstAsync<ContaFixa>('SELECT * FROM contas_fixas WHERE id = ? AND excluido = 0', id);
 }
 
-export type DadosContaFixa = Pick<ContaFixa, 'tipo' | 'nome' | 'valor_centavos' | 'dia_vencimento' | 'categoria' | 'ativa'>;
+export type DadosContaFixa = Pick<ContaFixa, 'tipo' | 'nome' | 'valor_centavos' | 'dia_vencimento' | 'categoria' | 'ativa' | 'termina_em'>;
 
 /**
  * Salva a conta fixa e propaga para os lançamentos ainda não pagos a partir do
@@ -355,21 +366,28 @@ export function salvarContaFixa(db: SQLiteDatabase, id: string | null, d: DadosC
   return emFila(() =>
     db.withTransactionAsync(async () => {
       await db.runAsync(
-        `INSERT INTO contas_fixas (id, tipo, nome, valor_centavos, dia_vencimento, categoria, ativa, atualizado_em)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO contas_fixas (id, tipo, nome, valor_centavos, dia_vencimento, categoria, ativa, termina_em, atualizado_em)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            tipo = excluded.tipo, nome = excluded.nome, valor_centavos = excluded.valor_centavos,
            dia_vencimento = excluded.dia_vencimento, categoria = excluded.categoria, ativa = excluded.ativa,
-           atualizado_em = excluded.atualizado_em, sujo = 1`,
-        contaId, d.tipo, d.nome, d.valor_centavos, d.dia_vencimento, d.categoria, d.ativa, agoraISO(),
+           termina_em = excluded.termina_em, atualizado_em = excluded.atualizado_em, sujo = 1`,
+        contaId, d.tipo, d.nome, d.valor_centavos, d.dia_vencimento, d.categoria, d.ativa, d.termina_em, agoraISO(),
       );
 
       if (!d.ativa) {
         await excluirLancamentosFuturosDaConta(db, contaId, mesHoje);
         return;
       }
+      if (d.termina_em) {
+        // Depois do último mês, nada pendente fica (pagos e meses passados são histórico).
+        const depoisDoFim = somarMeses(d.termina_em, 1);
+        await excluirLancamentosFuturosDaConta(db, contaId, depoisDoFim > mesHoje ? depoisDoFim : mesHoje);
+      }
       const meses = await db.getAllAsync<{ id: Mes }>('SELECT id FROM meses_gerados WHERE id >= ?', mesHoje);
-      for (const { id: mes } of meses) await inserirLancamentoDaConta(db, { id: contaId, ...d }, mes);
+      for (const { id: mes } of meses) {
+        if (!d.termina_em || mes <= d.termina_em) await inserirLancamentoDaConta(db, { id: contaId, ...d }, mes);
+      }
     }),
   );
 }
@@ -465,11 +483,12 @@ export function excluirParcelasDesde(db: SQLiteDatabase, l: Lancamento) {
   );
 }
 
-export function alternarPago(db: SQLiteDatabase, l: Lancamento) {
+/** Marca como paga (na data informada, ou hoje) ou desfaz o pagamento. */
+export function alternarPago(db: SQLiteDatabase, l: Lancamento, pagoEm?: DataISO) {
   return emFila(() =>
     db.runAsync(
       'UPDATE lancamentos SET pago_em = ?, atualizado_em = ?, sujo = 1 WHERE id = ?',
-      l.pago_em ? null : hojeISO(), agoraISO(), l.id,
+      l.pago_em ? null : (pagoEm ?? hojeISO()), agoraISO(), l.id,
     ),
   );
 }

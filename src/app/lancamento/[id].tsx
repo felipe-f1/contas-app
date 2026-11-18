@@ -16,12 +16,14 @@ import {
   salvarLancamento,
 } from '../../lib/db';
 import { formatarBRL } from '../../lib/dinheiro';
+import { dataPagamentoValida } from '../../lib/pagamento';
 import { sincronizar } from '../../lib/sincronizar';
 import { categoriasDo, cores } from '../../lib/tema';
 
 export default function FormLancamento() {
   const db = useSQLiteContext();
-  const params = useLocalSearchParams<{ id: string; mes?: Mes }>();
+  // pagar=1: veio do atalho "Outra data" da lista, já abre pedindo a data do pagamento.
+  const params = useLocalSearchParams<{ id: string; mes?: Mes; pagar?: string }>();
   const id = params.id === 'novo' ? null : params.id;
 
   const [original, setOriginal] = useState<Lancamento | null>(null);
@@ -34,6 +36,7 @@ export default function FormLancamento() {
     params.mes && params.mes !== mesAtual() ? vencimentoNoMes(params.mes, new Date().getDate()) : hojeISO(),
   );
   const [pago, setPago] = useState(false);
+  const [pagoEm, setPagoEm] = useState(hojeISO());
   const [parcelado, setParcelado] = useState(false);
   const [parcelas, setParcelas] = useState(2);
 
@@ -49,9 +52,10 @@ export default function FormLancamento() {
       setValor(l.valor_centavos);
       setCat(l.categoria);
       setVencimento(l.vencimento);
-      setPago(l.pago_em != null);
+      setPago(l.pago_em != null || params.pagar === '1');
+      setPagoEm(l.pago_em ?? hojeISO());
     });
-  }, [db, id]);
+  }, [db, id, params.pagar]);
 
   function trocarTipo(novo: Tipo) {
     setTipo(novo);
@@ -62,13 +66,14 @@ export default function FormLancamento() {
   async function salvar() {
     if (!descricao.trim()) return Alert.alert('Informe uma descrição');
     if (valor <= 0) return Alert.alert('Informe o valor');
+    if (pago && !dataPagamentoValida(pagoEm, hojeISO())) return Alert.alert('A data do pagamento não pode ser no futuro');
     const dados = {
       tipo,
       descricao: descricao.trim(),
       valor_centavos: valor,
       categoria: cat,
       vencimento,
-      pago_em: pago ? (original?.pago_em ?? hojeISO()) : null,
+      pago_em: pago ? pagoEm : null,
     };
     if (id == null && parcelado) await criarParcelado(db, dados, parcelas);
     else await salvarLancamento(db, id, dados);
@@ -160,6 +165,12 @@ export default function FormLancamento() {
           <Text style={s.linhaTexto}>{receita ? 'Já recebi' : parcelado ? '1ª parcela já está paga' : 'Já está paga'}</Text>
           <Switch value={pago} onValueChange={setPago} trackColor={{ true: cores.primaria }} />
         </View>
+        {pago && (
+          <View>
+            <Rotulo>{receita ? 'Data do recebimento' : parcelado ? 'Data do pagamento da 1ª parcela' : 'Data do pagamento'}</Rotulo>
+            <CampoData valor={pagoEm} onChange={setPagoEm} maximo={hojeISO()} abrirAoMontar={params.pagar === '1'} />
+          </View>
+        )}
         <Botao titulo="Salvar" icone="checkmark" onPress={salvar} />
         {id != null && <Botao titulo="Excluir" variante="perigo" icone="trash-outline" onPress={excluir} />}
       </ScrollView>

@@ -6,6 +6,7 @@ import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { BotaoFlutuante, Cartao, Vazio, estilos } from '../../components/ui';
 import { type ContaFixa, listarContasFixas } from '../../lib/db';
+import { type Mes, mesAtual } from '../../lib/datas';
 import { formatarBRL } from '../../lib/dinheiro';
 import { categoria, cores } from '../../lib/tema';
 
@@ -19,7 +20,9 @@ export default function Fixas() {
     }, [db]),
   );
 
-  const ativas = contas.filter((c) => c.ativa);
+  const mes = mesAtual();
+  const encerrada = (c: ContaFixa) => c.termina_em != null && c.termina_em < mes;
+  const ativas = contas.filter((c) => c.ativa && !encerrada(c));
   const soma = (tipo: string) => ativas.filter((c) => c.tipo === tipo).reduce((s, c) => s + c.valor_centavos, 0);
   const despesas = soma('despesa');
   const receitas = soma('receita');
@@ -52,7 +55,7 @@ export default function Fixas() {
           return (
             <Pressable
               onPress={() => router.push({ pathname: '/conta/[id]', params: { id: item.id } })}
-              style={({ pressed }) => [s.item, !item.ativa && { opacity: 0.5 }, pressed && { opacity: 0.7 }]}
+              style={({ pressed }) => [s.item, (!item.ativa || encerrada(item)) && { opacity: 0.5 }, pressed && { opacity: 0.7 }]}
               accessibilityRole="button"
             >
               <View style={[s.icone, { backgroundColor: `${cat.cor}1A` }]}>
@@ -61,7 +64,12 @@ export default function Fixas() {
               <View style={{ flex: 1 }}>
                 <Text style={s.nome}>{item.nome}</Text>
                 <Text style={s.sub}>
-                  {item.ativa ? `Todo dia ${item.dia_vencimento}` : 'Pausada'} · {item.categoria}
+                  {!item.ativa
+                    ? 'Pausada'
+                    : encerrada(item)
+                      ? `Encerrada em ${mesCurto(item.termina_em!)}`
+                      : `Todo dia ${item.dia_vencimento}${item.termina_em ? ` · até ${mesCurto(item.termina_em)}` : ''}`}{' '}
+                  · {item.categoria}
                 </Text>
               </View>
               <Text style={[s.valor, item.tipo === 'receita' && { color: cores.primaria }]}>
@@ -105,3 +113,8 @@ const s = StyleSheet.create({
   sub: { fontSize: 13, color: cores.textoSuave, marginTop: 2 },
   valor: { fontSize: 15, fontWeight: '700', color: cores.texto },
 });
+
+const MESES_CURTOS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+function mesCurto(m: Mes) {
+  return `${MESES_CURTOS[Number(m.slice(5)) - 1]}/${m.slice(2, 4)}`;
+}

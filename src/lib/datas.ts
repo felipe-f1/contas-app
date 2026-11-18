@@ -81,3 +81,12 @@ export function descreverPrazo(vencimento: DataISO, hoje: DataISO): string {
   if (dias === -1) return 'Venceu ontem';
   return `Venceu há ${-dias} dias`;
 }
+
+/** Quantos meses de `de` até `ate`, contando os dois (2026-11 → 2027-01 = 3). */
+export function mesesAte(de: Mes, ate: Mes): number {
+  const n = (m: Mes) => {
+    const [a, mm] = m.split('-').map(Number);
+    return a * 12 + mm;
+  };
+  return n(ate) - n(de) + 1;
+}

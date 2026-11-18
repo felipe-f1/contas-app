@@ -3,8 +3,9 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 
-import { CampoValor, Contador, SeletorCategoria, SeletorTipo } from '../../components/campos';
+import { CampoValor, Contador, SeletorCategoria, SeletorMes, SeletorTipo } from '../../components/campos';
 import { Botao, Rotulo, estilos } from '../../components/ui';
+import { type Mes, mesAtual, mesesAte, nomeMes, somarMeses } from '../../lib/datas';
 import { type Tipo, buscarContaFixa, excluirContaFixa, salvarContaFixa } from '../../lib/db';
 import { sincronizar } from '../../lib/sincronizar';
 import { categoriasDo, cores } from '../../lib/tema';
@@ -20,6 +21,9 @@ export default function FormContaFixa() {
   const [dia, setDia] = useState(10);
   const [cat, setCat] = useState('Moradia');
   const [ativa, setAtiva] = useState(true);
+  // Prazo: null = sem fim. Sugestão ao ligar: 12 meses contando o atual.
+  const [terminaEm, setTerminaEm] = useState<Mes | null>(null);
+  const hoje = mesAtual();
 
   useEffect(() => {
     if (id == null) return;
@@ -31,6 +35,7 @@ export default function FormContaFixa() {
       setDia(c.dia_vencimento);
       setCat(c.categoria);
       setAtiva(!!c.ativa);
+      setTerminaEm(c.termina_em);
     });
   }, [db, id]);
 
@@ -48,6 +53,7 @@ export default function FormContaFixa() {
       dia_vencimento: dia,
       categoria: cat,
       ativa: ativa ? 1 : 0,
+      termina_em: terminaEm,
     });
     sincronizar(db);
     router.back();
@@ -99,6 +105,28 @@ export default function FormContaFixa() {
           <Rotulo>Categoria</Rotulo>
           <SeletorCategoria tipo={tipo} valor={cat} onChange={setCat} />
         </View>
+        <View style={s.linha}>
+          <View style={{ flex: 1 }}>
+            <Text style={s.linhaTexto}>Tem data para terminar</Text>
+            <Text style={s.dica}>Financiamento, parcelamento, contrato… Desligado: repete sem fim.</Text>
+          </View>
+          <Switch
+            value={terminaEm != null}
+            onValueChange={(v) => setTerminaEm(v ? somarMeses(hoje, 11) : null)}
+            trackColor={{ true: cores.primaria }}
+          />
+        </View>
+        {terminaEm != null && (
+          <View>
+            <Rotulo>Último mês</Rotulo>
+            <SeletorMes valor={terminaEm} onChange={setTerminaEm} minimo={terminaEm < hoje ? terminaEm : hoje} />
+            <Text style={s.dica}>
+              {terminaEm < hoje
+                ? `Encerrada em ${nomeMes(terminaEm).toLowerCase()}.`
+                : `Vale até ${nomeMes(terminaEm).toLowerCase()}: ${mesesAte(hoje, terminaEm)} ${mesesAte(hoje, terminaEm) === 1 ? 'mês' : 'meses'} a partir deste.`}
+            </Text>
+          </View>
+        )}
         {id != null && (
           <View style={s.linha}>
             <View style={{ flex: 1 }}>

@@ -2,9 +2,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { descreverPrazo, diasEntre, nomeMes, somarDias, somarMeses, vencimentoNoMes } from '../src/lib/datas.ts';
+import { descreverPrazo, diasEntre, mesesAte, nomeMes, somarDias, somarMeses, vencimentoNoMes } from '../src/lib/datas.ts';
 import { centavosDeDigitos, formatarBRL } from '../src/lib/dinheiro.ts';
 import { planejarLembretes } from '../src/lib/planejarLembretes.ts';
+import { dataPagamentoValida, sugestoesDePagamento } from '../src/lib/pagamento.ts';
 import { gerarCSV, montarSerie, resumir } from '../src/lib/relatorios.ts';
 
 test('vencimento no dia 31 cai no último dia de meses curtos', () => {
@@ -123,4 +124,23 @@ test('CSV no formato do Excel brasileiro', () => {
   assert.ok(csv.startsWith('﻿Mês;Vencimento;'));
   assert.equal(linhas[1], '2026-10;05/10/2026;Despesa;"Luz; conta ""nova""";Luz, água e gás;-150,75;Paga;04/10/2026;');
   assert.equal(linhas[2], '2026-10;05/10/2026;Receita;Salário;Salário;5000,00;Pendente;;2/10');
+});
+
+test('data do pagamento: sugestões só para conta atrasada e nunca no futuro', () => {
+  assert.deepEqual(sugestoesDePagamento('2026-11-18', '2026-11-18'), []);
+  assert.deepEqual(sugestoesDePagamento('2026-11-25', '2026-11-18'), []);
+  assert.deepEqual(sugestoesDePagamento('2026-11-10', '2026-11-18'), [
+    { rotulo: 'Hoje', data: '2026-11-18' },
+    { rotulo: 'No vencimento (10/11)', data: '2026-11-10' },
+  ]);
+  assert.equal(dataPagamentoValida('2026-11-10', '2026-11-18'), true);
+  assert.equal(dataPagamentoValida('2026-11-18', '2026-11-18'), true);
+  assert.equal(dataPagamentoValida('2026-11-19', '2026-11-18'), false);
+});
+
+test('meses restantes de uma conta fixa com prazo', () => {
+  assert.equal(mesesAte('2026-11', '2026-11'), 1);
+  assert.equal(mesesAte('2026-11', '2027-01'), 3);
+  assert.equal(mesesAte('2026-11', '2027-10'), 12);
+  assert.equal(mesesAte('2026-11', '2026-10'), 0);
 });

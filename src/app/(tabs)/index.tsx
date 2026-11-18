@@ -5,6 +5,7 @@ import { SectionList, StyleSheet, Text, View } from 'react-native';
 
 import { AvisoReconectar } from '../../components/AvisoReconectar';
 import { ItemLancamento } from '../../components/ItemLancamento';
+import { marcarPagoComData } from '../../components/marcarPago';
 import { BotaoFlutuante, Cartao, TituloSecao, Vazio, estilos } from '../../components/ui';
 import { hojeISO, mesAtual, nomeMes, somarDias } from '../../lib/datas';
 import { type Lancamento, alternarPago, listarLancamentosDoMes, listarPendentes } from '../../lib/db';
@@ -30,10 +31,12 @@ export default function APagar() {
     }, [carregar]),
   );
 
-  async function onAlternarPago(l: Lancamento) {
-    await alternarPago(db, l);
-    await carregar();
-    sincronizar(db);
+  function onAlternarPago(l: Lancamento) {
+    marcarPagoComData(l, hojeISO(), async (pagoEm) => {
+      await alternarPago(db, l, pagoEm);
+      await carregar();
+      sincronizar(db);
+    });
   }
 
   const emUmaSemana = somarDias(hoje, 7);

@@ -4,6 +4,7 @@ import { type ReactNode, createContext, useCallback, useContext, useEffect, useR
 import { AppState, StyleSheet, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
+import { verificarAtualizacao } from './atualizacoes';
 import { apagarPin, temPin } from './cofre';
 import { lerConfig, limparDadosDoUsuario } from './db';
 import { iniciarNuvem, prepararUsuario } from './nuvem';
@@ -122,6 +123,7 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
       setEmSegundoPlano(estado !== 'active');
       if (estado === 'background') saiuEm.current = Date.now();
       if (estado === 'active') {
+        verificarAtualizacao();
         if (usuario && pinDefinido && deveBloquear(saiuEm.current, Date.now())) setBloqueado(true);
         saiuEm.current = null;
         if (usuario) sincronizar(db);

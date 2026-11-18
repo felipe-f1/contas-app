@@ -15,7 +15,7 @@ await db.exec(`
   grant execute on function auth.uid() to anon, authenticated;
   insert into auth.users values ('00000000-0000-0000-0000-00000000000a','a@x.com'), ('00000000-0000-0000-0000-00000000000b','b@x.com');
 `);
-for (const f of ['0001_backups.sql', '0002_sincronizacao.sql', '0003_excluir_conta.sql', '0004_manter_ativo.sql']) await db.exec(readFileSync(`${raiz}/supabase/migrations/${f}`, 'utf8'));
+for (const f of ['0001_backups.sql', '0002_sincronizacao.sql', '0003_excluir_conta.sql', '0004_manter_ativo.sql', '0005_conta_fixa_prazo.sql']) await db.exec(readFileSync(`${raiz}/supabase/migrations/${f}`, 'utf8'));
 // rodar de novo: migração precisa ser idempotente
 await db.exec(readFileSync(`${raiz}/supabase/migrations/0002_sincronizacao.sql`, 'utf8'));
 console.log('✓ migrações executadas (e reexecutadas sem erro)');
@@ -92,4 +92,12 @@ const ping = await como(null, `select public.manter_ativo() as agora`);
 assert.ok(ping.rows[0].agora instanceof Date);
 await assert.rejects(como(null, `select * from public.lancamentos`), /permission denied/);
 console.log('✓ ping manter_ativo: acessível sem login e sem acesso a dados');
+// 9. conta fixa com prazo
+const contaComPrazo = `insert into public.contas_fixas (id, tipo, nome, valor_centavos, dia_vencimento, categoria, ativa, termina_em, atualizado_em)
+  values ($1, 'despesa', 'Financiamento', 50000, 10, 'Moradia', true, $2, now())`;
+await como(B, contaComPrazo, ['cf1', '2027-03']);
+assert.equal((await como(B, `select termina_em from public.contas_fixas where id = 'cf1'`)).rows[0].termina_em, '2027-03');
+await como(B, contaComPrazo, ['cf2', null]);
+await assert.rejects(como(B, contaComPrazo, ['cf3', 'março']), /check constraint/);
+console.log('✓ conta fixa com prazo (termina_em) e sem fim (null); formato inválido rejeitado');
 console.log('TODOS OS TESTES DO BANCO PASSARAM');

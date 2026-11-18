@@ -26,7 +26,7 @@ Configuração inicial (uma vez): em **Settings → Secrets and variables → Ac
 
 Para desenvolver com recarga instantânea: `npm install`, depois `npx expo start`, e abra pelo app **Expo Go**.
 
-Banco, login e e-mail: siga **[docs/NUVEM.md](docs/NUVEM.md)**.
+Banco, login e e-mail: siga **[docs/NUVEM.md](docs/NUVEM.md)**. Atualizações sem baixar APK: **[docs/ATUALIZACOES.md](docs/ATUALIZACOES.md)**.
 
 ## Arquitetura
 

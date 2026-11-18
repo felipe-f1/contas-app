@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import Constants from 'expo-constants';
 import { useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
@@ -8,6 +9,7 @@ import { SecaoConta } from '../../components/SecaoConta';
 import { Contador } from '../../components/campos';
 import { Botao, Cartao, TituloSecao, estilos } from '../../components/ui';
 import { type Config, type Preferencias, lerConfig, salvarConfig, salvarPreferencias } from '../../lib/db';
+import { descricaoVersao } from '../../lib/atualizacoes';
 import { exportarPlanilha } from '../../lib/exportar';
 import {
   type Calendario,
@@ -156,6 +158,7 @@ export default function Ajustes() {
       </Cartao>
 
       <SecaoConta />
+      <Text style={s.versao}>{descricaoVersao(Constants.expoConfig?.version)}</Text>
     </ScrollView>
   );
 }
@@ -177,5 +180,6 @@ const s = StyleSheet.create({
   titulo: { fontSize: 16, fontWeight: '600', color: cores.texto },
   sub: { fontSize: 13, color: cores.textoSuave, marginTop: 2, lineHeight: 18 },
   opcao: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 6 },
+  versao: { fontSize: 12, color: cores.textoSuave, textAlign: 'center', marginTop: 8 },
   opcaoTitulo: { fontSize: 15, color: cores.texto, fontWeight: '500' },
 });

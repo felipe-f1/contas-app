@@ -2,7 +2,7 @@
 
 export const TABELAS = {
   contas_fixas: {
-    colunas: ['id', 'tipo', 'nome', 'valor_centavos', 'dia_vencimento', 'categoria', 'ativa', 'atualizado_em', 'excluido'],
+    colunas: ['id', 'tipo', 'nome', 'valor_centavos', 'dia_vencimento', 'categoria', 'ativa', 'termina_em', 'atualizado_em', 'excluido'],
     booleanos: ['ativa', 'excluido'],
   },
   lancamentos: {
