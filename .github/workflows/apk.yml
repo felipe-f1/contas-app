@@ -9,6 +9,7 @@ on:
       - 'loja/**'
       - '**/*.md'
       - '.github/workflows/manter-supabase-ativo.yml'
+      - '.github/workflows/atualizar-app.yml'
   workflow_dispatch:
 
 permissions:

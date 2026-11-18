@@ -32,9 +32,15 @@ jobs:
       - name: Atualizações automáticas configuradas?
         id: config
         run: |
-          if [ -z "$EXPO_TOKEN" ] || [ -z "$EXPO_PROJECT_ID" ]; then
-            echo "::notice::Atualização automática desligada: falta o secret EXPO_TOKEN ou a variável EXPO_PROJECT_ID."
+          faltando=""
+          [ -z "$EXPO_TOKEN" ] && faltando="$faltando secret EXPO_TOKEN (aba Secrets);"
+          [ -z "$EXPO_PROJECT_ID" ] && faltando="$faltando variável EXPO_PROJECT_ID (aba Variables);"
+          if [ -n "$faltando" ]; then
+            echo "::warning::Atualização automática desligada. Falta:$faltando"
             echo "pronto=false" >> "$GITHUB_OUTPUT"
+          elif ! echo "$EXPO_PROJECT_ID" | grep -Eq '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'; then
+            echo "::error::EXPO_PROJECT_ID não tem o formato de ID do Expo (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)."
+            exit 1
           else
             echo "pronto=true" >> "$GITHUB_OUTPUT"
           fi
