@@ -9,9 +9,17 @@ import { ItemLancamento } from '../../components/ItemLancamento';
 import { marcarPagoComData } from '../../components/marcarPago';
 import { BotaoFlutuante, Cartao, TituloSecao, Vazio, estilos } from '../../components/ui';
 import { hojeISO, mesAtual, nomeMes, somarMeses } from '../../lib/datas';
-import { type Lancamento, alternarPago, gerarMes, listarLancamentosDoMes, totaisPorMes } from '../../lib/db';
+import {
+  type Lancamento,
+  alternarPago,
+  gerarMes,
+  listarContasFixas,
+  listarLancamentosDoMes,
+  listarMesesGerados,
+  totaisPorMes,
+} from '../../lib/db';
 import { formatarBRL } from '../../lib/dinheiro';
-import { type PontoSerie, montarSerie, resumir } from '../../lib/relatorios';
+import { type PontoSerie, janelaDoGrafico, montarSerieComPrevisao, resumir } from '../../lib/relatorios';
 import { sincronizar } from '../../lib/sincronizar';
 import { categoria, cores } from '../../lib/tema';
 
@@ -27,10 +35,15 @@ export default function Mes() {
   const carregar = useCallback(async () => {
     await gerarMes(db, mes);
     setItens(await listarLancamentosDoMes(db, mes));
-    // O gráfico termina no mês aberto (ou no atual, se você estiver olhando o futuro).
-    const fim = mes > mesAtual() ? mes : mesAtual();
-    const inicio = somarMeses(fim, -(MESES_GRAFICO - 1));
-    setSerie(montarSerie(await totaisPorMes(db, inicio, fim), fim, MESES_GRAFICO));
+    // Gráfico: passado real + futuro previsto pelas contas fixas (respeitando o prazo de cada uma).
+    const atual = mesAtual();
+    const { inicio, fim } = janelaDoGrafico(mes, atual, MESES_GRAFICO);
+    const [totais, contas, gerados] = await Promise.all([
+      totaisPorMes(db, inicio, fim),
+      listarContasFixas(db),
+      listarMesesGerados(db, inicio, fim),
+    ]);
+    setSerie(montarSerieComPrevisao(totais, contas, gerados, inicio, fim, atual));
   }, [db, mes]);
 
   useFocusEffect(

@@ -11,7 +11,9 @@ const ALTURA = 120;
 /** Barras de receitas x despesas por mês. Toque num mês para abri-lo. */
 export function GraficoMeses({ serie, mesAtivo, onEscolher }: { serie: PontoSerie[]; mesAtivo: Mes; onEscolher: (m: Mes) => void }) {
   const maximo = Math.max(1, ...serie.flatMap((p) => [p.receitas, p.despesas]));
-  const media = serie.filter((p) => p.despesas > 0);
+  // Média só com meses que já aconteceram (previsão não entra).
+  const media = serie.filter((p) => p.despesas > 0 && !p.previsto);
+  const temPrevisao = serie.some((p) => p.previsto);
   const mediaDespesas = media.length ? media.reduce((s, p) => s + p.despesas, 0) / media.length : 0;
 
   return (
@@ -25,9 +27,9 @@ export function GraficoMeses({ serie, mesAtivo, onEscolher }: { serie: PontoSeri
               onPress={() => onEscolher(p.mes)}
               style={s.coluna}
               accessibilityRole="button"
-              accessibilityLabel={`${MESES_CURTOS[Number(p.mes.slice(5)) - 1]}: receitas ${formatarBRL(p.receitas)}, despesas ${formatarBRL(p.despesas)}`}
+              accessibilityLabel={`${MESES_CURTOS[Number(p.mes.slice(5)) - 1]}${p.previsto ? ' (previsto)' : ''}: receitas ${formatarBRL(p.receitas)}, despesas ${formatarBRL(p.despesas)}`}
             >
-              <View style={s.barras}>
+              <View style={[s.barras, p.previsto && s.previsto]}>
                 <View style={[s.barra, { height: (p.receitas / maximo) * ALTURA, backgroundColor: cores.primaria }]} />
                 <View style={[s.barra, { height: (p.despesas / maximo) * ALTURA, backgroundColor: cores.perigo }]} />
               </View>
@@ -39,16 +41,17 @@ export function GraficoMeses({ serie, mesAtivo, onEscolher }: { serie: PontoSeri
       <View style={s.legenda}>
         <Legenda cor={cores.primaria} texto="Receitas" />
         <Legenda cor={cores.perigo} texto="Despesas" />
+        {temPrevisao && <Legenda cor={cores.textoSuave} texto="Claro = previsto" claro />}
         {mediaDespesas > 0 && <Text style={s.media}>Média de gastos: {formatarBRL(mediaDespesas)}</Text>}
       </View>
     </View>
   );
 }
 
-function Legenda({ cor, texto }: { cor: string; texto: string }) {
+function Legenda({ cor, texto, claro }: { cor: string; texto: string; claro?: boolean }) {
   return (
     <View style={s.legendaItem}>
-      <View style={[s.ponto, { backgroundColor: cor }]} />
+      <View style={[s.ponto, { backgroundColor: cor }, claro && s.previsto]} />
       <Text style={s.legendaTexto}>{texto}</Text>
     </View>
   );
@@ -59,6 +62,7 @@ const s = StyleSheet.create({
   coluna: { flex: 1, alignItems: 'center', gap: 6 },
   barras: { flexDirection: 'row', alignItems: 'flex-end', gap: 3, height: ALTURA },
   barra: { width: 10, borderTopLeftRadius: 3, borderTopRightRadius: 3, minHeight: 2 },
+  previsto: { opacity: 0.4 },
   mes: { fontSize: 12, color: cores.textoSuave },
   mesAtivo: { color: cores.texto, fontWeight: '800' },
   legenda: { flexDirection: 'row', alignItems: 'center', gap: 14, flexWrap: 'wrap' },

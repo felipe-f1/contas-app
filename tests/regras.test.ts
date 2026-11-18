@@ -6,7 +6,7 @@ import { descreverPrazo, diasEntre, mesesAte, nomeMes, somarDias, somarMeses, ve
 import { centavosDeDigitos, formatarBRL } from '../src/lib/dinheiro.ts';
 import { planejarLembretes } from '../src/lib/planejarLembretes.ts';
 import { dataPagamentoValida, sugestoesDePagamento } from '../src/lib/pagamento.ts';
-import { gerarCSV, montarSerie, resumir } from '../src/lib/relatorios.ts';
+import { gerarCSV, janelaDoGrafico, montarSerie, montarSerieComPrevisao, resumir } from '../src/lib/relatorios.ts';
 
 test('vencimento no dia 31 cai no último dia de meses curtos', () => {
   assert.equal(vencimentoNoMes('2026-02', 31), '2026-02-28');
@@ -143,4 +143,30 @@ test('meses restantes de uma conta fixa com prazo', () => {
   assert.equal(mesesAte('2026-11', '2027-01'), 3);
   assert.equal(mesesAte('2026-11', '2027-10'), 12);
   assert.equal(mesesAte('2026-11', '2026-10'), 0);
+});
+
+test('janela do gráfico: 3 passados, atual e 2 futuros; anda com o mês aberto', () => {
+  assert.deepEqual(janelaDoGrafico('2026-11', '2026-11'), { inicio: '2026-08', fim: '2027-01' });
+  assert.deepEqual(janelaDoGrafico('2027-05', '2026-11'), { inicio: '2026-12', fim: '2027-05' });
+  assert.deepEqual(janelaDoGrafico('2026-02', '2026-11'), { inicio: '2026-02', fim: '2026-07' });
+});
+
+test('gráfico prevê contas fixas nos meses futuros respeitando o último mês', () => {
+  const contas = [
+    { tipo: 'despesa' as const, valor_centavos: 100000, ativa: 1, termina_em: '2027-01' }, // financiamento até jan
+    { tipo: 'despesa' as const, valor_centavos: 20000, ativa: 1, termina_em: null }, // internet sem fim
+    { tipo: 'despesa' as const, valor_centavos: 99999, ativa: 0, termina_em: null }, // pausada
+    { tipo: 'receita' as const, valor_centavos: 500000, ativa: 1, termina_em: null }, // salário
+  ];
+  const linhas = [
+    { mes: '2026-11', tipo: 'despesa' as const, total: 120000 }, // real (já gerado)
+    { mes: '2027-02', tipo: 'despesa' as const, total: 5000 }, // parcela já lançada
+  ];
+  const serie = montarSerieComPrevisao(linhas, contas, new Set(['2026-11', '2026-12']), '2026-11', '2027-02', '2026-11');
+  assert.deepEqual(serie, [
+    { mes: '2026-11', receitas: 0, despesas: 120000, previsto: false }, // gerado: só real
+    { mes: '2026-12', receitas: 0, despesas: 0, previsto: true }, // gerado (sem lançamentos no teste): sem dupla contagem
+    { mes: '2027-01', receitas: 500000, despesas: 120000, previsto: true }, // financiamento ainda vale
+    { mes: '2027-02', receitas: 500000, despesas: 25000, previsto: true }, // financiamento acabou; parcela + internet
+  ]);
 });

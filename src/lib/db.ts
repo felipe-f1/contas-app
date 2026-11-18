@@ -513,3 +513,8 @@ export function totaisPorMes(db: SQLiteDatabase, de: Mes, ate: Mes) {
 export function listarTodosLancamentos(db: SQLiteDatabase) {
   return db.getAllAsync<Lancamento>('SELECT * FROM lancamentos WHERE excluido = 0 ORDER BY vencimento, id');
 }
+
+export async function listarMesesGerados(db: SQLiteDatabase, de: Mes, ate: Mes): Promise<Set<Mes>> {
+  const linhas = await db.getAllAsync<{ id: Mes }>('SELECT id FROM meses_gerados WHERE id BETWEEN ? AND ?', de, ate);
+  return new Set(linhas.map((l) => l.id));
+}
