@@ -28,6 +28,8 @@ jobs:
       APP_VERSION_CODE: ${{ github.run_number }}
       # Liga as atualizações automáticas no APK (EAS Update), quando configurado.
       EXPO_PROJECT_ID: ${{ vars.EXPO_PROJECT_ID }}
+      # Conta do Expo dona do projeto (padrão: felipededanos-team).
+      EXPO_OWNER: ${{ vars.EXPO_OWNER }}
       EXPO_PUBLIC_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
       EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
     steps:
