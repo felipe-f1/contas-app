@@ -18,6 +18,8 @@ const projetoExpo = process.env.EXPO_PROJECT_ID;
 
 module.exports = ({ config }) => ({
   ...config,
+  // Conta do Expo dona do projeto (precisa bater com o dono do EXPO_PROJECT_ID).
+  ...(projetoExpo ? { owner: process.env.EXPO_OWNER || 'felipededanos-team' } : {}),
   version: `1.0.${build}`,
   android: {
     ...config.android,
