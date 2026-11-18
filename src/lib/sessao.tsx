@@ -87,6 +87,8 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
       }
       await aplicarProtecaoDeTela(config.bloquearCapturas);
       if (ativo) setCarregando(false);
+      // Abertura do zero: também procura atualização (não só ao voltar do segundo plano).
+      verificarAtualizacao();
 
       // Em segundo plano: confere a sessão do servidor, sem bloquear nada.
       const { data, error } = await supa.auth.getSession();

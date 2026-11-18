@@ -13,8 +13,9 @@ export async function verificarAtualizacao() {
   try {
     const { isAvailable } = await Updates.checkForUpdateAsync();
     if (!isAvailable) return;
-    const { isNew } = await Updates.fetchUpdateAsync();
-    if (!isNew) return;
+    // Se a abertura do app já tinha baixado (ON_LOAD), isNew vem false, mas a
+    // versão nova continua esperando para ser aplicada: oferece reiniciar igual.
+    await Updates.fetchUpdateAsync();
     Alert.alert('Atualização pronta', 'Uma nova versão do Contas em Dia foi baixada. Reiniciar agora para usar?', [
       { text: 'Depois', style: 'cancel' },
       { text: 'Reiniciar', onPress: () => Updates.reloadAsync().catch(() => {}) },
